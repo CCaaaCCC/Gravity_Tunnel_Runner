@@ -685,7 +685,7 @@
     <p class="desc">综合评分: <span id="finalComposite" class="accent-num">0</span></p>
     <p class="desc">最高连击: <span id="finalCombo" class="accent-num">0</span></p>
     <p class="desc">成就解锁: <span id="finalAchievements" class="accent-num">0</span></p>
-    <button id="restartBtn">再来一次</button>
+    <button id="restartBtn">再来一次（空格/点击）</button>
     <button id="menuBtn" style="margin-top:10px; background:linear-gradient(135deg,#6b7bff,#5a6aee);">返回菜单</button>
   </div>
 </div>
@@ -1649,6 +1649,46 @@ const difficultySettings = {
   }
 };
 
+// 难度曲线：按奔跑距离分段，方便无限模式渐进与 A/B 调参
+// 数值为 normal 难度下的基准值，实际会乘上 difficultySettings 对应乘数
+const DIFFICULTY_CURVE = [
+  { distance: 0,    maxWallsBase: 0.5, laserChance: 0.20, movingChance: 0.00, powerupChance: 0.12, moveSpeedMin: 1.5, moveSpeedMax: 3.5 },
+  { distance: 500,  maxWallsBase: 1.5, laserChance: 0.30, movingChance: 0.25, powerupChance: 0.22, moveSpeedMin: 2.0, moveSpeedMax: 4.0 },
+  { distance: 1000, maxWallsBase: 2.5, laserChance: 0.35, movingChance: 0.40, powerupChance: 0.28, moveSpeedMin: 2.5, moveSpeedMax: 4.5 },
+  { distance: 1500, maxWallsBase: 3.0, laserChance: 0.40, movingChance: 0.55, powerupChance: 0.30, moveSpeedMin: 3.0, moveSpeedMax: 5.0 },
+  { distance: 2500, maxWallsBase: 3.5, laserChance: 0.45, movingChance: 0.70, powerupChance: 0.32, moveSpeedMin: 3.5, moveSpeedMax: 5.5 },
+  { distance: 4000, maxWallsBase: 4.0, laserChance: 0.50, movingChance: 0.85, powerupChance: 0.34, moveSpeedMin: 4.0, moveSpeedMax: 6.0 }
+];
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function getDifficultyAt(distance) {
+  const first = DIFFICULTY_CURVE[0];
+  const last = DIFFICULTY_CURVE[DIFFICULTY_CURVE.length - 1];
+  if (distance <= first.distance) return first;
+  if (distance >= last.distance) return last;
+
+  for (let i = 0; i < DIFFICULTY_CURVE.length - 1; i++) {
+    const cur = DIFFICULTY_CURVE[i];
+    const next = DIFFICULTY_CURVE[i + 1];
+    if (distance >= cur.distance && distance < next.distance) {
+      const t = (distance - cur.distance) / (next.distance - cur.distance);
+      return {
+        distance,
+        maxWallsBase: lerp(cur.maxWallsBase, next.maxWallsBase, t),
+        laserChance: lerp(cur.laserChance, next.laserChance, t),
+        movingChance: lerp(cur.movingChance, next.movingChance, t),
+        powerupChance: lerp(cur.powerupChance, next.powerupChance, t),
+        moveSpeedMin: lerp(cur.moveSpeedMin, next.moveSpeedMin, t),
+        moveSpeedMax: lerp(cur.moveSpeedMax, next.moveSpeedMax, t)
+      };
+    }
+  }
+  return last;
+}
+
 let currentDifficulty = 'normal';
 
 // Wall shaders for dynamic grid lines
@@ -1750,8 +1790,17 @@ const powerupMaterials = {
 };
 
 const obstaclePool = [];
+const obstacleFreeList = [];
 const laserPool = [];
+const laserFreeList = [];
 const powerupPools = {
+  energy: [],
+  invincible: [],
+  shield: [],
+  magnet: [],
+  boost: []
+};
+const powerupFreeLists = {
   energy: [],
   invincible: [],
   shield: [],
@@ -1760,7 +1809,7 @@ const powerupPools = {
 };
 
 function getObstacleFromPool() {
-  let obs = obstaclePool.find(o => !o.parent);
+  let obs = obstacleFreeList.pop();
   if (!obs) {
     obs = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
     obstaclePool.push(obs);
@@ -1769,8 +1818,14 @@ function getObstacleFromPool() {
   return obs;
 }
 
+function returnObstacleToPool(obs) {
+  if (obs.parent) obs.parent.remove(obs);
+  obs.visible = false;
+  obstacleFreeList.push(obs);
+}
+
 function getLaserFromPool() {
-  let laser = laserPool.find(l => !l.parent);
+  let laser = laserFreeList.pop();
   if (!laser) {
     laser = new THREE.Mesh(laserGeometry, laserMaterial);
     laserPool.push(laser);
@@ -1779,16 +1834,28 @@ function getLaserFromPool() {
   return laser;
 }
 
+function returnLaserToPool(laser) {
+  if (laser.parent) laser.parent.remove(laser);
+  laser.visible = false;
+  laserFreeList.push(laser);
+}
+
 function getPowerupFromPool(type) {
-  let pool = powerupPools[type];
-  let pup = pool.find(p => !p.parent);
+  let pup = powerupFreeLists[type].pop();
   if (!pup) {
     pup = new THREE.Mesh(powerupGeometries[type], powerupMaterials[type]);
     pup.userData = { type };
-    pool.push(pup);
+    powerupPools[type].push(pup);
   }
   pup.visible = true;
   return pup;
+}
+
+function returnPowerupToPool(pup) {
+  const type = pup.userData.type;
+  if (pup.parent) pup.parent.remove(pup);
+  pup.visible = false;
+  powerupFreeLists[type].push(pup);
 }
 
 // ============ 段创建与生成 ============
@@ -1812,23 +1879,23 @@ function createSegment(startZ) {
   return group;
 }
 
-function spawnObstacles(seg, difficulty) {
+function spawnObstacles(seg, spawnDistance) {
   seg.userData.obstacles.forEach(o => {
-    seg.remove(o.mesh);
-    o.mesh.visible = false;
+    if (o.type === 'laser') returnLaserToPool(o.mesh);
+    else returnObstacleToPool(o.mesh);
   });
   seg.userData.obstacles = [];
 
   const settings = difficultySettings[currentDifficulty];
-  const adjustedDifficulty = difficulty * settings.obstacleMultiplier;
-  const maxWalls = Math.min(2, 1 + Math.floor(adjustedDifficulty * 2));
+  const curve = getDifficultyAt(spawnDistance);
+  const maxWalls = Math.min(2, 1 + Math.floor(curve.maxWallsBase * settings.obstacleMultiplier));
   const wallsToBlock = shuffle([0,1,2,3]).slice(0, maxWalls);
   const size = 1.15;
 
   wallsToBlock.forEach(state => {
     const localZ = (Math.random()-0.5) * SEG_LEN * 0.55;
-    const isLaser = Math.random() < 0.3;
-    
+    const isLaser = Math.random() < curve.laserChance;
+
     let mesh;
     let type = 'box';
     if (isLaser) {
@@ -1854,34 +1921,33 @@ function spawnObstacles(seg, difficulty) {
     }
     seg.add(mesh);
     
-    const isMoving = !isLaser && (Math.random() < 0.25 * adjustedDifficulty);
+    const isMoving = !isLaser && (Math.random() < curve.movingChance * settings.obstacleMultiplier);
     const rotationSpeed = !isLaser ? (0.5 + Math.random() * 1.5) : 0;
-    
-    seg.userData.obstacles.push({ 
-      mesh, 
-      state, 
-      localZ, 
-      height: isLaser ? 0.2 : size, 
+
+    seg.userData.obstacles.push({
+      mesh,
+      state,
+      localZ,
+      height: isLaser ? 0.2 : size,
       type,
-      isMoving, 
-      moveDirection: Math.random() < 0.5 ? 1 : -1, 
-      moveSpeed: 1.5 + Math.random() * 2,
+      isMoving,
+      moveDirection: Math.random() < 0.5 ? 1 : -1,
+      moveSpeed: curve.moveSpeedMin + Math.random() * (curve.moveSpeedMax - curve.moveSpeedMin),
       rotationSpeed
     });
   });
 }
 
-function spawnPowerups(seg, difficulty) {
+function spawnPowerups(seg, spawnDistance) {
   seg.userData.powerups.forEach(p => {
-    seg.remove(p.mesh);
-    p.mesh.visible = false;
+    returnPowerupToPool(p.mesh);
   });
   seg.userData.powerups = [];
 
   const settings = difficultySettings[currentDifficulty];
-  const adjustedDifficulty = difficulty * settings.powerupMultiplier;
-  const powerupChance = 0.12 + adjustedDifficulty * 0.16;
-  
+  const curve = getDifficultyAt(spawnDistance);
+  const powerupChance = curve.powerupChance * settings.powerupMultiplier;
+
   if (Math.random() < powerupChance) {
     const state = Math.floor(Math.random() * 4);
     const localZ = (Math.random()-0.5) * SEG_LEN * 0.55;
@@ -2015,6 +2081,7 @@ magnetRing.visible = false;
 // ============ 玩家霓虹尾迹效果 (Neon Trail) ============
 const trailLength = 15;
 const trailHistory = [];
+let trailWriteIndex = 0;
 const trailMeshes = [];
 const trailGeometry = new THREE.BoxGeometry(0.28, 0.28, 0.28);
 const trailContainer = new THREE.Group();
@@ -2038,6 +2105,7 @@ for (let i = 0; i < trailLength; i++) {
 
 function initTrail() {
   trailHistory.length = 0;
+  trailWriteIndex = 0;
   // Pre-populate trailHistory with Vector3 objects so we can copy values instead of creating new instances
   for (let i = 0; i < trailLength * 2; i++) {
     trailHistory.push(new THREE.Vector3());
@@ -2150,6 +2218,7 @@ window.buySkin = function(skinId) {
 // ============ 游戏机制状态变量 ============
 let isJumping = false;
 let playerY = 0;
+let prevPlayerY = 0;
 let velocityY = 0;
 const GRAVITY = -42;
 const JUMP_POWER = 15;
@@ -2221,14 +2290,15 @@ function jump() {
   if (!isJumping && gameRunning) {
     isJumping = true;
     velocityY = JUMP_POWER;
-    
+
     if (energy >= 2) {
       energy -= 2;
       updateEnergyBar();
     }
-    
+
     audioManager.playJump();
-    
+    if (navigator.vibrate) navigator.vibrate([20, 10, 20]);
+
     const pColor = new THREE.Color(currentSkinObj.color);
     particleSystem.emit(player.position, 15, pColor, 1.8);
   }
@@ -2359,20 +2429,21 @@ let currentRotZ = 0;
 
 function setGravity(state) {
   if (state === gravityState || !gameRunning) return;
-  
+
   gravityState = state;
   targetRotZ = -state * Math.PI/2;
-  
+
   if (energy >= 1) {
     energy -= 1;
     updateEnergyBar();
   }
-  
+
   audioManager.playWallSwitch();
-  
+  if (navigator.vibrate) navigator.vibrate(15);
+
   const sColor = new THREE.Color(currentSkinObj.color);
   particleSystem.emit(player.position, 12, sColor, 1.5);
-  
+
   if (comboTimer > 0) {
     combo++;
     if (combo > maxCombo) maxCombo = combo;
@@ -2397,7 +2468,15 @@ window.addEventListener('keydown', (e) => {
     togglePause();
     return;
   }
-  
+
+  if (!gameRunning && gameOverScreen.style.display === 'flex') {
+    if (e.code === 'Space' || e.code === 'Enter') {
+      e.preventDefault();
+      restartGame();
+      return;
+    }
+  }
+
   switch(e.code) {
     case 'Space': case 'ArrowUp': jump(); break;
     case 'ArrowLeft': case 'KeyA': setGravity((gravityState + 3) % 4); break;
@@ -2540,19 +2619,9 @@ function togglePause() {
 }
 
 function triggerNearMiss() {
-  const el = document.getElementById('nearMissDisplay');
-  if (el) {
-    el.style.opacity = '1';
-    el.style.transform = 'translateX(-50%) scale(1.2)';
-    setTimeout(() => {
-      el.style.opacity = '0';
-      el.style.transform = 'translateX(-50%) scale(1.0)';
-    }, 800);
-  }
-  
   audioManager.playNearMiss();
   powerupBonusPoints += 150;
-  
+
   if (comboTimer > 0) {
     combo++;
     if (combo > maxCombo) maxCombo = combo;
@@ -2562,34 +2631,62 @@ function triggerNearMiss() {
     combo = 1;
     comboTimer = comboWindow;
   }
+
+  const el = document.getElementById('nearMissDisplay');
+  if (el) {
+    el.style.opacity = '1';
+    el.style.transform = 'translateX(-50%) scale(1.2)';
+
+    // 擦边连击颜色分层：白 -> 蓝 -> 紫 -> 金
+    let color = '#ffffff';
+    if (combo >= 15) color = '#eab308';
+    else if (combo >= 10) color = '#8b5cf6';
+    else if (combo >= 5) color = '#3b82f6';
+    el.style.color = color;
+    el.textContent = combo >= 2 ? `擦边! x${combo}` : '擦边!';
+
+    setTimeout(() => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateX(-50%) scale(1.0)';
+    }, 800);
+  }
+
+  // 高连击擦边追加粒子与微震，强化正反馈
+  if (combo >= 5) {
+    const pColor = new THREE.Color(currentSkinObj.color);
+    particleSystem.emit(player.position, 12, pColor, 1.2);
+    screenShake.shake(0.15, 0.12);
+  }
 }
 
 function checkCollisions() {
   const threshold = 0.75;
-  
-  // 检查道具碰撞
+  const segCullDist = SEG_LEN * 0.75;
+
+  // 检查道具碰撞（仅遍历玩家所在段及空间相邻段）
   for (const seg of segments) {
+    if (Math.abs(seg.position.z - PLAYER_Z) > segCullDist) continue;
+
+    const collected = [];
     for (const powerup of seg.userData.powerups) {
       const worldZ = seg.position.z + powerup.localZ;
       if (powerup.state === gravityState && Math.abs(worldZ - PLAYER_Z) < threshold) {
-        
-        seg.remove(powerup.mesh);
-        powerup.mesh.visible = false;
-        seg.userData.powerups = seg.userData.powerups.filter(p => p !== powerup);
+        collected.push(powerup);
+
         powerupsCollected++;
         cumulativePowerups++;
         powerupBonusPoints += 50;
-        
+
         audioManager.collectPowerup(powerup.type);
-        
+
         const pColor = new THREE.Color(
-          powerup.type === 'energy' ? 0x4ee6e0 : 
+          powerup.type === 'energy' ? 0x4ee6e0 :
           powerup.type === 'invincible' ? 0xe6a23e :
           powerup.type === 'shield' ? 0x3b82f6 :
           powerup.type === 'magnet' ? 0xef4444 : 0x10b981
         );
         particleSystem.emit(player.position, 25, pColor, 2.0);
-        
+
         if (powerup.type === 'energy') {
           energy = Math.min(energy + 35, maxEnergy);
           updateEnergyBar();
@@ -2617,43 +2714,54 @@ function checkCollisions() {
         }
       }
     }
+
+    for (const powerup of collected) {
+      returnPowerupToPool(powerup.mesh);
+      const idx = seg.userData.powerups.indexOf(powerup);
+      if (idx >= 0) seg.userData.powerups.splice(idx, 1);
+    }
   }
-  
+
   // 检查障碍物碰撞
   for (const seg of segments) {
+    if (Math.abs(seg.position.z - PLAYER_Z) > segCullDist) continue;
+
+    const removedObstacles = [];
     for (const obs of seg.userData.obstacles) {
       const worldZ = seg.position.z + obs.localZ;
-      if (obs.state === gravityState && Math.abs(worldZ - PLAYER_Z) < threshold) {
-        
+      const prevWorldZ = (seg.userData.prevZ !== undefined) ? seg.userData.prevZ + obs.localZ : worldZ;
+      const zNear = Math.abs(worldZ - PLAYER_Z) < threshold;
+      const zCrossed = (prevWorldZ > PLAYER_Z + threshold && worldZ < PLAYER_Z - threshold) ||
+                       (prevWorldZ < PLAYER_Z - threshold && worldZ > PLAYER_Z + threshold);
+
+      if (obs.state === gravityState && (zNear || zCrossed)) {
+
+        const playerYBottom = Math.min(prevPlayerY, playerY);
+        const playerYTop = Math.max(prevPlayerY, playerY);
         let collided = false;
         if (obs.type === 'laser') {
-          if (gravityState === 0 || gravityState === 2) {
-            if (playerY < 0.68) collided = true;
-          } else {
-            if (playerY < 0.68) collided = true;
-          }
+          if (playerYBottom < 0.68 && playerYTop >= 0) collided = true;
         } else {
           let playerLocalOffset = 0;
           let obsLocalOffset = obs.mesh.position.x;
           if (obs.state === 1 || obs.state === 3) {
             obsLocalOffset = obs.mesh.position.y;
           }
-          if (playerY < 1.05 && Math.abs(obsLocalOffset - playerLocalOffset) < 1.2) {
+          if (playerYBottom < 1.05 && playerYTop >= 0 && Math.abs(obsLocalOffset - playerLocalOffset) < 1.2) {
             collided = true;
           }
         }
-        
+
         if (collided) {
           collisionsCount++;
+          removedObstacles.push(obs);
+
           if (isInvincible) {
-            seg.remove(obs.mesh);
-            obs.mesh.visible = false;
-            seg.userData.obstacles = seg.userData.obstacles.filter(o => o !== obs);
-            
             audioManager.playCollision();
+            if (navigator.vibrate) navigator.vibrate(20);
             particleSystem.emit(obs.mesh.position, 40, new THREE.Color(0xff6b6b), 2.5);
             screenShake.shake(0.35, 0.2);
-            
+
             if (comboTimer > 0) {
               combo++;
               if (combo > maxCombo) maxCombo = combo;
@@ -2666,38 +2774,39 @@ function checkCollisions() {
           } else if (shieldActive) {
             shieldActive = false;
             shieldBubble.visible = false;
-            
-            seg.remove(obs.mesh);
-            obs.mesh.visible = false;
-            seg.userData.obstacles = seg.userData.obstacles.filter(o => o !== obs);
-            
+
             audioManager.playCollision();
+            if (navigator.vibrate) navigator.vibrate(20);
             particleSystem.emit(player.position, 35, new THREE.Color(0x3b82f6), 2.2);
             screenShake.shake(0.25, 0.18);
           } else {
             energy -= 35;
             updateEnergyBar();
-            
-            seg.remove(obs.mesh);
-            obs.mesh.visible = false;
-            seg.userData.obstacles = seg.userData.obstacles.filter(o => o !== obs);
-            
+
             audioManager.playCollision();
+            if (navigator.vibrate) navigator.vibrate([15, 5, 25]);
             particleSystem.emit(player.position, 40, new THREE.Color(0xff3b3b), 3.0);
             screenShake.shake(0.65, 0.35);
             triggerDamageFlash();
-            
+
             if (energy <= 0) {
               startDeathAnimation();
               return;
             }
           }
         }
-      } else if (Math.abs(worldZ - PLAYER_Z) < 1.2 && !obs.nearMissed) {
+      } else if ((Math.abs(worldZ - PLAYER_Z) < 1.2 || zCrossed) && !obs.nearMissed) {
         // Near miss detection when obstacle passes but no collision occurred
         obs.nearMissed = true;
         triggerNearMiss();
       }
+    }
+
+    for (const obs of removedObstacles) {
+      if (obs.type === 'laser') returnLaserToPool(obs.mesh);
+      else returnObstacleToPool(obs.mesh);
+      const idx = seg.userData.obstacles.indexOf(obs);
+      if (idx >= 0) seg.userData.obstacles.splice(idx, 1);
     }
   }
 }
@@ -2814,7 +2923,7 @@ function startGame() {
   world.rotation.z = 0;
   camera.rotation.z = 0;
   speed = 9; distance = 0; elapsedTime = 0;
-  isJumping = false; playerY = 0; velocityY = 0;
+  isJumping = false; playerY = 0; prevPlayerY = 0; velocityY = 0;
   player.position.y = BASE_Y;
   player.visible = true;
   
@@ -2851,9 +2960,12 @@ function startGame() {
       spawnObstacles(seg, 0);
       spawnPowerups(seg, 0);
     } else { 
-      seg.userData.obstacles.forEach(o => { seg.remove(o.mesh); o.mesh.visible = false; }); 
+      seg.userData.obstacles.forEach(o => {
+        if (o.type === 'laser') returnLaserToPool(o.mesh);
+        else returnObstacleToPool(o.mesh);
+      }); 
       seg.userData.obstacles = [];
-      seg.userData.powerups.forEach(p => { seg.remove(p.mesh); p.mesh.visible = false; }); 
+      seg.userData.powerups.forEach(p => { returnPowerupToPool(p.mesh); }); 
       seg.userData.powerups = [];
     }
   });
@@ -2879,27 +2991,34 @@ function endGame() {
   audioManager.stopWindSound();
   const finalDist = Math.floor(distance);
   const compositeScore = getCompositeScore();
-  
+
   finalScoreEl.textContent = finalDist;
   const compositeEl = document.getElementById('finalComposite');
   if (compositeEl) compositeEl.textContent = compositeScore;
   finalComboEl.textContent = maxCombo;
-  
+
   totalCredits += Math.floor(compositeScore * 0.1);
   localStorage.setItem('g_tunnel_credits', totalCredits);
-  
+
   saveScore(finalDist, maxCombo, currentDifficulty);
-  
+
   const unlockedCount = Object.values(achievements).filter(a => a.unlocked).length;
   finalAchievementsEl.textContent = unlockedCount;
-  
+
   audioManager.stopMusic();
   audioManager.playGameOver();
-  
+
   gameOverScreen.style.display = 'flex';
-  
+
   document.getElementById('powerupIndicator').style.opacity = '0';
   document.getElementById('comboDisplay').style.opacity = '0';
+}
+
+function restartGame() {
+  audioManager.playClick();
+  audioManager.init();
+  startGame();
+  startGameLoop();
 }
 
 function returnToMenu() {
@@ -2931,7 +3050,15 @@ document.getElementById('startBtn').addEventListener('click', () => {
 });
 
 document.getElementById('restartBtn').addEventListener('click', () => {
-  startCountdown();
+  restartGame();
+});
+
+gameOverScreen.addEventListener('touchend', (e) => {
+  if (e.target.closest('button')) return;
+  if (!gameRunning && gameOverScreen.style.display === 'flex') {
+    e.preventDefault();
+    restartGame();
+  }
 });
 
 document.getElementById('menuBtn').addEventListener('click', () => {
@@ -2950,9 +3077,50 @@ const clock = new THREE.Clock();
 let speedLinesFrameCount = 0;
 let energyWarningTimer = 0;
 
+// 性能自适应：FPS 采样与画质阶梯
+const FPS_SAMPLE_COUNT = 60;
+const fpsHistory = new Float32Array(FPS_SAMPLE_COUNT);
+let fpsIndex = 0;
+let fpsTimer = 0;
+let qualityLevel = 0; // 0=全特效, 1=低 Bloom, 2=关闭 Bloom
+const BLOOM_STRENGTH_LOW = 0.35;
+
+function updateAdaptiveQuality(dt) {
+  const fps = dt > 0 ? 1 / dt : 60;
+  fpsHistory[fpsIndex] = fps;
+  fpsIndex = (fpsIndex + 1) % FPS_SAMPLE_COUNT;
+  fpsTimer += dt;
+
+  if (fpsTimer >= 2.0) {
+    fpsTimer = 0;
+    let avgFps = 0;
+    for (let i = 0; i < FPS_SAMPLE_COUNT; i++) avgFps += fpsHistory[i];
+    avgFps /= FPS_SAMPLE_COUNT;
+
+    if (qualityLevel === 0 && avgFps < 45) {
+      qualityLevel = 1;
+      bloomPass.strength = BLOOM_STRENGTH_LOW;
+    } else if (qualityLevel <= 1 && avgFps < 35) {
+      qualityLevel = 2;
+      const idx = composer.passes.indexOf(bloomPass);
+      if (idx >= 0) composer.passes.splice(idx, 1);
+    }
+  }
+}
+
+function renderFrame() {
+  if (qualityLevel >= 2) {
+    renderer.render(scene, camera);
+  } else {
+    composer.render();
+  }
+}
+
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
+
+  updateAdaptiveQuality(dt);
 
   if (deathAnimating) {
     deathTimer -= dt;
@@ -2970,7 +3138,7 @@ function animate() {
       deathAnimating = false;
       endGame();
     }
-    composer.render();
+    renderFrame();
     return;
   }
 
@@ -2985,7 +3153,6 @@ function animate() {
     
     speed = (9 + elapsedTime*0.34) * speedMult;
     distance += speed*dt;
-    const difficulty = elapsedTime/35;
 
     if (starMaterial && starMaterial.uniforms) {
       starMaterial.uniforms.time.value = elapsedTime;
@@ -3013,8 +3180,9 @@ function animate() {
     audioManager.updateMusicBPM(speed);
 
     segments.forEach(seg => {
+      seg.userData.prevZ = seg.position.z;
       seg.position.z += speed*dt;
-      
+
       seg.userData.obstacles.forEach(obs => {
         if (obs.type === 'box' && obs.mesh) {
           obs.mesh.rotation.y += dt * obs.rotationSpeed;
@@ -3097,8 +3265,8 @@ function animate() {
           }
         }
         seg.position.z = minZ - SEG_LEN;
-        spawnObstacles(seg, difficulty);
-        spawnPowerups(seg, difficulty);
+        spawnObstacles(seg, distance);
+        spawnPowerups(seg, distance);
       }
     });
 
@@ -3123,6 +3291,7 @@ function animate() {
       camera.updateProjectionMatrix();
     }
 
+    prevPlayerY = playerY;
     if (isJumping) {
       velocityY += GRAVITY * dt;
       playerY += velocityY * dt;
@@ -3218,16 +3387,14 @@ function animate() {
 
     _trailTempVec.copy(player.position);
     world.worldToLocal(_trailTempVec);
-    for (let i = trailHistory.length - 1; i > 0; i--) {
-      trailHistory[i].copy(trailHistory[i - 1]);
-    }
     if (trailHistory.length > 0) {
-      trailHistory[0].copy(_trailTempVec);
+      trailHistory[trailWriteIndex].copy(_trailTempVec);
+      trailWriteIndex = (trailWriteIndex + 1) % trailHistory.length;
     }
 
     for (let i = 0; i < trailMeshes.length; i++) {
-      const histIdx = i * 2;
-      if (histIdx < trailHistory.length) {
+      const histIdx = (trailWriteIndex - 1 - i * 2 + trailHistory.length) % trailHistory.length;
+      if (i * 2 < trailHistory.length) {
         trailMeshes[i].position.copy(trailHistory[histIdx]);
         const scaleVal = 1.0 - (i / trailMeshes.length) * 0.65;
         trailMeshes[i].scale.setScalar(scaleVal);
@@ -3254,7 +3421,7 @@ function animate() {
   particleSystem.update(dt);
   screenShake.update(dt);
 
-  composer.render();
+  renderFrame();
 }
 
 loadSkins();
