@@ -4,15 +4,43 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>重力隧道 · Gravity Tunnel Runner</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
+  /* ============ 设计令牌 / Design Tokens ============ */
+  :root {
+    --accent-primary: #00E5C7;
+    --accent-primary-soft: #00e5c733;
+    --accent-primary-glow: #00e5c780;
+    --accent-warm: #FF8B3D;
+    --accent-warm-glow: #ff8b3d80;
+    --accent-gold: #F5C842;
+    --danger: #FF4D6D;
+    --bg-base: #04060e;
+    --bg-deep: #02030a;
+    --panel-glass: rgba(8, 12, 22, 0.78);
+    --panel-border: rgba(0, 229, 199, 0.28);
+    --panel-border-soft: rgba(0, 229, 199, 0.12);
+    --text-primary: #eafcff;
+    --text-secondary: #aebfd0;
+    --text-muted: #7d93a6;
+    --text-dim: #5a6b7d;
+    --font-display: 'Chakra Petch', 'PingFang SC', system-ui, sans-serif;
+    --font-body: 'Sora', -apple-system, "Segoe UI", "PingFang SC", system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Chakra Petch', monospace;
+    --radius-panel: 20px;
+    --radius-pill: 999px;
+    --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  .hidden { display: none !important; }
   html, body {
     width:100%; height:100%; overflow:hidden;
     position:fixed;
-    background:#020308;
-    font-family: 'Outfit', -apple-system, "Segoe UI", "PingFang SC", system-ui, sans-serif;
+    background: var(--bg-deep);
+    font-family: var(--font-body);
     touch-action:none;
     -webkit-user-select:none; user-select:none;
     -webkit-touch-callout:none;
@@ -20,316 +48,493 @@
   }
   canvas { display:block; touch-action:none; }
 
+  /* ============ 全屏氛围层 ============ */
+  .scanline-overlay {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    pointer-events:none; z-index:50;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0, 229, 199, 0.025) 0px,
+      rgba(0, 229, 199, 0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode: overlay;
+    opacity: 0.6;
+  }
+  .grain-overlay {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    pointer-events:none; z-index:51;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode: screen;
+  }
+  .vignette-overlay {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    pointer-events:none; z-index:4;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(2,3,10,0.55) 100%);
+  }
+
   #hud {
     position:fixed; top:0; left:0; width:100%; height:100%;
-    pointer-events:none; z-index:10; display:none;
+    pointer-events:none; z-index:10; display:block;
   }
   .hud-panel {
     position:absolute; top:20px; left:20px;
-    background:rgba(5,7,16,0.65);
-    border:1px solid rgba(78,230,224,0.4);
-    border-radius:16px;
-    padding:14px 22px;
-    backdrop-filter:blur(10px);
-    box-shadow: 0 0 20px rgba(78,230,224,0.15);
+    background: var(--panel-glass);
+    border:1px solid var(--panel-border);
+    border-radius: 14px;
+    padding:14px 22px 12px;
+    backdrop-filter:blur(14px) saturate(1.4);
+    box-shadow: 0 0 24px rgba(0,229,199,0.10), inset 0 0 0 1px rgba(0,229,199,0.06);
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  }
+  .hud-panel::before {
+    content:''; position:absolute; left:0; top:14px; bottom:14px; width:2px;
+    background: linear-gradient(180deg, transparent, var(--accent-primary), transparent);
+    opacity:0.7;
   }
   .score-label {
-    font-size:10px; letter-spacing:3px; opacity:0.7; color:#9fe9e5;
-    text-transform:uppercase;
-    font-weight: 600;
+    font-family: var(--font-display);
+    font-size:9.5px; letter-spacing:3.5px; opacity:0.85; color: var(--accent-primary);
+    text-transform:uppercase; font-weight: 600;
   }
   .score-value {
-    font-family: 'Orbitron', monospace;
-    font-size:36px; font-weight:900; color:#eafcff;
-    font-variant-numeric:tabular-nums; line-height:1.1;
-    text-shadow:0 0 15px rgba(78,230,224,0.6);
+    font-family: var(--font-display);
+    font-size:38px; font-weight:700; color: var(--text-primary);
+    font-variant-numeric:tabular-nums; line-height:1.05;
+    text-shadow:0 0 18px rgba(0,229,199,0.55);
+    letter-spacing: 0.5px;
   }
+  .score-value .unit { font-size: 16px; font-weight:500; color: var(--accent-primary); margin-left:4px; opacity:0.8; }
   .speed-row {
-    margin-top:6px; font-size:13px; color:#8fa3b8;
-    font-variant-numeric:tabular-nums;
+    margin-top:5px; font-size:12.5px; color: var(--text-muted);
+    font-variant-numeric:tabular-nums; font-family: var(--font-mono);
+    letter-spacing:0.5px;
   }
-  .speed-row span { color:#e6a23e; font-weight:700; text-shadow: 0 0 10px rgba(230,162,62,0.3); }
+  .speed-row span { color: var(--accent-warm); font-weight:700; text-shadow: 0 0 10px var(--accent-warm-glow); }
   .controls-hint {
     position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
-    background:rgba(5,7,16,0.65);
-    border:1px solid rgba(255,255,255,0.12);
-    border-radius:999px;
+    background: var(--panel-glass);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius: var(--radius-pill);
     padding:9px 22px;
-    font-size:13px; color:#cfe3ea; letter-spacing:1px;
+    font-size:12.5px; color:#cfe3ea; letter-spacing:0.8px;
     white-space:nowrap;
-    backdrop-filter:blur(8px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    backdrop-filter:blur(10px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.03);
   }
-  
+
   .energy-bar-container {
-    position:absolute; top:20px; right:20px;
-    width:120px; height:10px;
-    background:rgba(5,7,16,0.65);
-    border:1px solid rgba(78,230,224,0.4);
-    border-radius:999px;
+    position:absolute; top:24px; right:20px;
+    width:140px; height:12px;
+    background: rgba(4,6,14,0.7);
+    border:1px solid var(--panel-border);
+    border-radius: var(--radius-pill);
     overflow:hidden;
-    box-shadow: 0 0 10px rgba(78,230,224,0.1);
+    box-shadow: 0 0 12px rgba(0,229,199,0.12), inset 0 1px 2px rgba(0,0,0,0.6);
   }
   .energy-bar {
     height:100%;
-    background:linear-gradient(90deg, #4ee6e0, #00ffcc);
+    background: linear-gradient(90deg, #00E5C7, #00ffcc, #00E5C7);
+    background-size: 200% 100%;
     width:100%;
-    transition:width 0.08s;
+    transition: width 0.1s var(--ease-smooth);
+    position: relative;
+    box-shadow: 0 0 10px rgba(0,229,199,0.6);
+    animation: energyShimmer 2.4s linear infinite;
   }
+  .energy-bar::after {
+    content:''; position:absolute; inset:0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+    background-size: 50% 100%;
+    animation: energySheen 1.8s ease-in-out infinite;
+  }
+  @keyframes energyShimmer { 0%{background-position:0% 0} 100%{background-position:200% 0} }
+  @keyframes energySheen { 0%{background-position:-100% 0} 100%{background-position:200% 0} }
   .energy-label {
-    position:absolute; top:34px; right:20px;
-    font-size:9px; letter-spacing:2px; opacity:0.7; color:#9fe9e5;
-    text-transform:uppercase;
-    font-weight: 600;
+    position:absolute; top:8px; right:20px;
+    font-family: var(--font-display);
+    font-size:8.5px; letter-spacing:2.5px; opacity:0.85; color: var(--accent-primary);
+    text-transform:uppercase; font-weight: 600;
   }
 
   @media (max-width:480px) {
     .hud-panel { padding:10px 16px; top:15px; left:15px; }
-    .score-value { font-size:24px; }
+    .score-value { font-size:26px; }
     .score-label { font-size:8px; }
     .speed-row { font-size:11px; }
-    .panel { padding:24px 18px; }
-    .panel h1 { font-size:26px; }
+    .panel { padding:26px 20px; }
+    .panel h1 { font-size:28px; }
     .desc { font-size:12px; }
     .keys { grid-template-columns:1fr 1fr; gap:6px; }
     .controls-hint { font-size: 10px; padding: 6px 14px; bottom: 16px; }
-    .energy-bar-container { width:90px; right:15px; top:15px; }
-    .energy-label { font-size:8px; right:15px; top:29px; }
+    .energy-bar-container { width:100px; right:15px; top:18px; height:10px; }
+    .energy-label { font-size:7.5px; right:15px; top:6px; }
+    .hud-toolbar { top:40px; right:15px; gap:4px; padding:3px 5px; }
+    .audio-btn { width:26px; height:26px; font-size:10px; }
+    .pause-btn { width:28px; height:28px; font-size:10px; }
+    .volume-slider { width:44px; margin:0 2px; }
+    .stats-grid { gap:6px; }
+    .stat-cell .stat-num { font-size:18px; }
+    .stat-cell { padding:8px 6px; }
+    .achievement-popup { max-width:200px; right:12px; padding:12px 16px; }
+    .combo-display { font-size:20px; top:80px; }
+    .powerup-indicator { font-size:12px; top:118px; }
+    .near-miss-display { font-size:16px; top:148px; }
+    .zone-name { font-size:28px; }
+    .countdown-number { font-size:90px; }
+    .countdown-go { font-size:70px; }
   }
 
   .overlay {
     position:fixed; top:0; left:0; width:100%; height:100%;
     display:flex; align-items:center; justify-content:center;
-    background:radial-gradient(ellipse at center, rgba(8,10,22,0.55) 0%, rgba(2,3,7,0.95) 85%);
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(0,229,199,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 80%, rgba(255,139,61,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at center, rgba(8,10,22,0.55) 0%, rgba(2,3,7,0.96) 85%);
     z-index:20;
     transition: opacity 0.3s ease;
+    animation: overlayFade 0.4s var(--ease-smooth);
   }
+  @keyframes overlayFade { from{opacity:0} to{opacity:1} }
   .panel {
     max-width:480px; width:92%;
-    background:rgba(8,11,22,0.82);
-    border:1px solid rgba(78,230,224,0.35);
-    border-radius:24px;
-    padding:36px 30px;
+    background: var(--panel-glass);
+    border:1px solid var(--panel-border);
+    border-radius: var(--radius-panel);
+    padding:36px 32px 32px;
     text-align:center;
-    box-shadow:0 0 50px rgba(78,230,224,0.12), inset 0 0 20px rgba(78,230,224,0.05);
-    backdrop-filter: blur(12px);
+    box-shadow:
+      0 0 60px rgba(0,229,199,0.10),
+      0 20px 60px rgba(0,0,0,0.5),
+      inset 0 0 0 1px rgba(0,229,199,0.05);
+    backdrop-filter: blur(16px) saturate(1.3);
     position: relative;
+    animation: panelIn 0.5s var(--ease-spring) both;
   }
-  
+  @keyframes panelIn {
+    from { opacity:0; transform: translateY(20px) scale(0.96); }
+    to { opacity:1; transform: translateY(0) scale(1); }
+  }
+  /* 四角装饰 */
   .panel::before, .panel::after {
     content: '';
     position: absolute;
-    width: 16px;
-    height: 16px;
-    border-color: #4ee6e0;
+    width: 18px; height: 18px;
+    border-color: var(--accent-primary);
     border-style: solid;
     pointer-events: none;
+    opacity: 0.9;
   }
   .panel::before {
-    top: 12px; left: 12px;
+    top: 10px; left: 10px;
     border-width: 2px 0 0 2px;
   }
   .panel::after {
-    bottom: 12px; right: 12px;
+    bottom: 10px; right: 10px;
     border-width: 0 2px 2px 0;
+  }
+  /* 顶部装饰条 */
+  .panel-top-bar {
+    position:absolute; top:-1px; left:30%; right:30%; height:2px;
+    background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+    box-shadow: 0 0 8px var(--accent-primary-glow);
   }
 
   .panel h1 {
-    font-family: 'Orbitron', monospace;
-    font-size:32px; color:#f3fbff; letter-spacing:2px; font-weight:900;
-    text-shadow: 0 0 15px rgba(78,230,224,0.4);
+    font-family: var(--font-display);
+    font-size:34px; color: var(--text-primary); letter-spacing:1.5px; font-weight:700;
+    text-shadow: 0 0 18px rgba(0,229,199,0.4);
+    animation: titleIn 0.6s var(--ease-smooth) 0.1s both;
   }
-  .panel h1 .accent { color:#4ee6e0; text-shadow: 0 0 20px rgba(78,230,224,0.8); }
-  
+  @keyframes titleIn { from{opacity:0; letter-spacing:6px} to{opacity:1; letter-spacing:1.5px} }
+  .panel h1 .accent { color: var(--accent-primary); text-shadow: 0 0 24px var(--accent-primary-glow); }
+
   .subtitle {
-    font-family: 'Orbitron', monospace;
-    font-size:11px; letter-spacing:4px; color:#5fb8c9; margin-top:4px; margin-bottom:20px;
+    font-family: var(--font-display);
+    font-size:10.5px; letter-spacing:5px; color: var(--accent-primary); opacity:0.7;
+    margin-top:6px; margin-bottom:18px;
+    position: relative;
+    animation: fadeIn 0.6s var(--ease-smooth) 0.2s both;
   }
+  .subtitle::after {
+    content:''; display:block; width:40px; height:1px; margin:10px auto 0;
+    background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+    opacity:0.5;
+  }
+  @keyframes fadeIn { from{opacity:0} to{opacity:0.7} }
   .desc {
-    font-size:13.5px; line-height:1.65; color:#aebfd0; margin-bottom:20px;
+    font-size:13.5px; line-height:1.7; color: var(--text-secondary); margin-bottom:20px;
+    animation: contentIn 0.6s var(--ease-smooth) 0.3s both;
   }
-  .accent-num { color:#4ee6e0; font-weight:800; font-size:18px; font-family: 'Orbitron', monospace; }
+  @keyframes contentIn { from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)} }
+  .accent-num {
+    color: var(--accent-primary); font-weight:700; font-size:20px;
+    font-family: var(--font-display);
+    text-shadow: 0 0 12px var(--accent-primary-glow);
+  }
   .keys {
     display:grid; grid-template-columns:1fr 1fr; gap:8px;
-    margin-bottom:20px;
+    margin-bottom:22px;
+    animation: contentIn 0.6s var(--ease-smooth) 0.35s both;
   }
   .key {
-    background:rgba(255,255,255,0.03);
-    border:1px solid rgba(255,255,255,0.08);
-    border-radius:10px;
-    padding:8px 6px;
-    font-size:12px; color:#dfeef5; font-weight:700;
+    background: rgba(255,255,255,0.025);
+    border:1px solid rgba(255,255,255,0.06);
+    border-left: 2px solid var(--accent-primary-soft);
+    border-radius:8px;
+    padding:9px 10px;
+    font-size:12px; color: var(--text-primary); font-weight:600;
+    font-family: var(--font-mono);
+    text-align:left;
+    display:flex; align-items:center; gap:8px;
+    transition: all 0.2s var(--ease-smooth);
   }
+  .key:hover { border-left-color: var(--accent-primary); background: rgba(0,229,199,0.05); }
+  .key i { color: var(--accent-primary); width:14px; text-align:center; font-size:12px; flex-shrink:0; }
+  .key-body { flex:1; }
   .key span {
-    display:block; font-size:10px; font-weight:400; color:#7d93a6; margin-top:3px;
+    display:block; font-size:10px; font-weight:400; color: var(--text-muted); margin-top:2px;
+    font-family: var(--font-body);
   }
+  /* 所有按钮的基础重置（消除浏览器默认外观） */
   button {
-    background:linear-gradient(135deg,#4ee6e0,#00e1d9);
-    color:#031215; border:none; border-radius:999px;
-    padding:12px 36px; font-size:14px; font-weight:800;
-    letter-spacing:1px; cursor:pointer;
-    box-shadow:0 6px 20px rgba(78,230,224,0.3);
-    transition:transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+    font-family: inherit;
+    background: none;
+    border: none;
+    color: inherit;
+    padding: 0;
   }
-  button:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(78,230,224,0.45); }
-  button:active { transform:translateY(0); }
-  
+
+  /* 主操作按钮：渐变背景 + 发光阴影 + 光泽扫过动效 */
+  button.btn {
+    --btn-glow: 0, 229, 199;
+    background: linear-gradient(135deg, #00E5C7 0%, #00b8a0 100%);
+    color:#031215; border-radius: var(--radius-pill);
+    padding:13px 38px; font-size:14px; font-weight:700;
+    letter-spacing:1px;
+    font-family: var(--font-display);
+    box-shadow:
+      0 6px 22px rgba(var(--btn-glow), 0.35),
+      inset 0 1px 0 rgba(255,255,255,0.4),
+      inset 0 -2px 0 rgba(0,0,0,0.15);
+    transition: all 0.2s var(--ease-spring);
+    position: relative;
+    overflow: hidden;
+    animation: contentIn 0.6s var(--ease-smooth) 0.4s both;
+  }
+  button.btn::before {
+    content:''; position:absolute; top:0; left:-100%; width:60%; height:100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+    transition: left 0.5s var(--ease-smooth);
+  }
+  button.btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow:
+      0 10px 30px rgba(var(--btn-glow), 0.5),
+      inset 0 1px 0 rgba(255,255,255,0.5),
+      0 0 0 1px rgba(var(--btn-glow), 0.3);
+  }
+  button.btn:hover::before { left:120%; }
+  button.btn:active { transform: translateY(0) scale(1); }
+
+  /* 按钮色彩变体：仅覆盖渐变与发光色，box-shadow 由 button.btn 基类统一驱动 */
+  .btn-danger { --btn-glow: 255, 77, 109; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%); }
+  .btn-success { --btn-glow: 34, 197, 94; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); }
+  .btn-secondary { --btn-glow: 107, 123, 255; background: linear-gradient(135deg, #6b7bff 0%, #5a6aee 100%); }
+  .btn + .btn { margin-top: 10px; }
+
   .combo-display {
-    position:absolute; top:85px; left:50%; transform:translateX(-50%);
-    font-family: 'Orbitron', monospace;
-    font-size:26px; font-weight:900; color:#e6a23e;
-    text-shadow:0 0 12px rgba(230,162,62,0.6);
+    position:absolute; top:90px; left:50%; transform:translateX(-50%) scale(1);
+    font-family: var(--font-display);
+    font-size:24px; font-weight:700; color: var(--accent-warm);
+    text-shadow:0 0 14px var(--accent-warm-glow);
     opacity:0;
-    transition:opacity 0.2s, transform 0.2s;
-  }
-  
-  .powerup-indicator {
-    position:absolute; top:125px; left:50%; transform:translateX(-50%);
-    font-family: 'Orbitron', monospace;
-    font-size:15px; font-weight:800; color:#4ee6e0;
-    text-shadow:0 0 10px rgba(78,230,224,0.6);
-    opacity:0;
-    transition:opacity 0.2s;
-  }
-  
-  .achievement-popup {
-    position:absolute; top:50%; left:50%; transform:translate(-50%, -50%);
-    background:rgba(6,9,18,0.92);
-    border:2px solid rgba(230,162,62,0.7);
-    border-radius:18px;
-    padding:20px 30px;
-    text-align:center;
-    opacity:0;
-    transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    z-index:15;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    transition: opacity 0.2s var(--ease-smooth), transform 0.25s var(--ease-spring);
+    padding: 6px 18px;
+    background: rgba(8,12,22,0.6);
+    border: 1px solid rgba(255,139,61,0.35);
+    border-radius: var(--radius-pill);
     backdrop-filter: blur(8px);
+    letter-spacing: 1px;
+  }
+
+  .powerup-indicator {
+    position:absolute; top:130px; left:50%; transform:translateX(-50%);
+    font-family: var(--font-display);
+    font-size:14px; font-weight:600; color: var(--accent-primary);
+    text-shadow:0 0 12px var(--accent-primary-glow);
+    opacity:0;
+    transition: opacity 0.25s var(--ease-smooth);
+    padding: 4px 14px;
+    background: rgba(8,12,22,0.6);
+    border: 1px solid var(--panel-border-soft);
+    border-radius: var(--radius-pill);
+    backdrop-filter: blur(8px);
+    letter-spacing: 1.5px;
+  }
+
+  .achievement-popup {
+    position:absolute; top:50%; right:24px;
+    transform: translateY(-50%) translateX(130%);
+    background: var(--panel-glass);
+    border:1px solid rgba(245,200,66,0.5);
+    border-left: 3px solid var(--accent-gold);
+    border-radius:14px;
+    padding:16px 22px 16px 18px;
+    text-align:left;
+    opacity:0;
+    transition: all 0.4s var(--ease-spring);
+    z-index:15;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 20px rgba(245,200,66,0.12);
+    backdrop-filter: blur(12px);
+    max-width: 240px;
+    display:flex; align-items:center; gap:14px;
   }
   .achievement-popup.show {
     opacity:1;
-    transform:translate(-50%, -50%) scale(1.05);
+    transform: translateY(-50%) translateX(0);
   }
+  .achievement-popup .ach-icon {
+    width:36px; height:36px; flex-shrink:0;
+    border-radius:8px;
+    background: linear-gradient(135deg, rgba(245,200,66,0.25), rgba(245,200,66,0.08));
+    border: 1px solid rgba(245,200,66,0.4);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--accent-gold); font-size:16px;
+  }
+  .ach-content { flex: 1; min-width: 0; }
   .achievement-title {
-    font-size:18px; font-weight:800; color:#e6a23e;
-    margin-bottom:8px;
+    font-size:14px; font-weight:700; color: var(--accent-gold);
+    margin-bottom:3px; font-family: var(--font-display); letter-spacing:0.5px;
   }
   .achievement-desc {
-    font-size:13px; color:#aebfd0;
+    font-size:11.5px; color: var(--text-secondary); line-height:1.4;
   }
   
+  /* ============ HUD 右上工具栏 ============ */
+  .hud-toolbar {
+    position:absolute; top:44px; right:20px;
+    display:flex; align-items:center; gap:6px;
+    background: var(--panel-glass);
+    border: 1px solid var(--panel-border-soft);
+    border-radius: var(--radius-pill);
+    padding: 4px 6px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+
   .audio-controls {
-    position:absolute; top:20px; right:150px;
-    display:flex; gap:10px;
+    display:flex; gap:4px;
   }
-  
   .audio-btn {
-    width:36px; height:36px;
+    width:30px; height:30px;
     border-radius:50%;
-    background:rgba(5,7,16,0.65);
-    border:1px solid rgba(78,230,224,0.4);
-    color:#9fe9e5;
+    background: rgba(255,255,255,0.03);
+    border:1px solid rgba(255,255,255,0.08);
+    color: var(--text-muted);
     display:flex; align-items:center; justify-content:center;
     cursor:pointer;
-    transition:all 0.2s;
+    transition: all 0.2s var(--ease-smooth);
     pointer-events:auto;
+    font-size: 12px;
   }
-  
   .audio-btn:hover {
-    background:rgba(78,230,224,0.25);
-    color:#4ee6e0;
-    box-shadow: 0 0 10px rgba(78,230,224,0.3);
+    background: rgba(0,229,199,0.15);
+    color: var(--accent-primary);
+    border-color: var(--panel-border);
+    box-shadow: 0 0 10px rgba(0,229,199,0.25);
   }
-  
   .audio-btn.active {
-    color:#4ee6e0;
-    border-color:rgba(78,230,224,0.7);
-    box-shadow: 0 0 10px rgba(78,230,224,0.2);
+    color: var(--accent-primary);
+    border-color: var(--panel-border);
+    background: rgba(0,229,199,0.1);
+    box-shadow: 0 0 8px rgba(0,229,199,0.2);
   }
-  
+
   .volume-slider {
-    position:absolute; top:24px; right:200px;
-    width:80px;
-    height:4px;
-    background:rgba(5,7,16,0.65);
+    width:64px; height:4px;
+    background: rgba(0,0,0,0.4);
     border-radius:2px;
     pointer-events:auto;
+    margin: 0 4px;
   }
-  
   .volume-slider input {
     width:100%; height:100%;
-    -webkit-appearance:none;
+    -webkit-appearance:none; appearance:none;
     background:transparent;
     cursor:pointer;
   }
-  
   .volume-slider input::-webkit-slider-thumb {
-    -webkit-appearance:none;
+    -webkit-appearance:none; appearance:none;
     width:12px; height:12px;
     border-radius:50%;
-    background:#4ee6e0;
+    background: var(--accent-primary);
     cursor:pointer;
     margin-top:-4px;
-    box-shadow: 0 0 8px #4ee6e0;
+    box-shadow: 0 0 8px var(--accent-primary-glow);
   }
-  
   .volume-slider input::-webkit-slider-runnable-track {
     width:100%; height:4px;
-    background:linear-gradient(90deg, #4ee6e0, #00c3d9);
+    background: linear-gradient(90deg, var(--accent-primary), #00b8a0);
     border-radius:2px;
   }
-  
+
   .pause-btn {
-    position:absolute; top:20px; left:50%; transform:translateX(-50%);
-    width:40px; height:40px;
+    width:32px; height:32px;
     border-radius:50%;
-    background:rgba(5,7,16,0.65);
-    border:1px solid rgba(78,230,224,0.4);
-    color:#9fe9e5;
+    background: rgba(255,255,255,0.03);
+    border:1px solid rgba(255,255,255,0.08);
+    color: var(--text-muted);
     display:flex; align-items:center; justify-content:center;
     cursor:pointer;
-    transition:all 0.2s;
+    transition: all 0.2s var(--ease-smooth);
     pointer-events:auto;
+    font-size: 12px;
   }
-  
   .pause-btn:hover {
-    background:rgba(78,230,224,0.25);
-    color:#4ee6e0;
-    box-shadow: 0 0 10px rgba(78,230,224,0.3);
+    background: rgba(0,229,199,0.15);
+    color: var(--accent-primary);
+    border-color: var(--panel-border);
+    box-shadow: 0 0 10px rgba(0,229,199,0.25);
   }
-  
+
+  /* ============ 难度选择器 ============ */
   .difficulty-selector {
-    display:flex; justify-content:center; gap:10px; margin-bottom:20px;
+    display:flex; justify-content:center; gap:8px; margin-bottom:20px;
+    animation: contentIn 0.6s var(--ease-smooth) 0.32s both;
   }
-  
   .difficulty-btn {
-    padding:8px 16px;
+    padding:8px 18px;
     border-radius:8px;
-    background:rgba(255,255,255,0.03);
-    border:1px solid rgba(255,255,255,0.08);
-    color:#dfeef5;
-    font-size:12px;
-    font-weight:700;
+    background: rgba(255,255,255,0.025);
+    border:1px solid rgba(255,255,255,0.06);
+    border-left: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size:12px; font-weight:600;
     cursor:pointer;
-    transition:all 0.2s;
+    transition: all 0.2s var(--ease-smooth);
+    font-family: var(--font-display);
+    letter-spacing: 0.5px;
+    display:flex; align-items:center; gap:6px;
   }
-  
   .difficulty-btn:hover {
-    background:rgba(78,230,224,0.1);
-    border-color:rgba(78,230,224,0.3);
+    background: rgba(0,229,199,0.06);
+    border-color: var(--panel-border-soft);
+    color: var(--text-primary);
   }
-  
   .difficulty-btn.active {
-    background:rgba(78,230,224,0.2);
-    border-color:rgba(78,230,224,0.6);
-    color:#4ee6e0;
-    box-shadow: 0 0 8px rgba(78,230,224,0.2);
+    background: rgba(0,229,199,0.12);
+    border-color: var(--panel-border);
+    border-left: 2px solid var(--accent-primary);
+    color: var(--accent-primary);
+    box-shadow: 0 0 12px rgba(0,229,199,0.15);
   }
+
   
-  @media (max-width:480px) {
-    .audio-controls { right:90px; top:15px; }
-    .volume-slider { right:140px; top:19px; width:50px; }
-    .pause-btn { width:36px; height:36px; top:15px; }
-  }
   
   .speed-lines {
     position:fixed; top:0; left:0; width:100%; height:100%;
@@ -338,84 +543,105 @@
     opacity:0;
     transition:opacity 0.3s;
   }
-  
   .speed-line {
     position:absolute;
     width:2px;
     height:100px;
-    background:linear-gradient(to bottom, transparent, rgba(78,230,224,0.5), transparent);
+    background:linear-gradient(to bottom, transparent, rgba(0,229,199,0.55), transparent);
     transform-origin:center;
   }
 
-  /* Tabbed menu elements */
+  /* ============ 菜单标签 ============ */
   .menu-tabs {
     display: flex;
-    justify-content: space-around;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 4px;
+    background: transparent;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-radius: 0;
+    padding: 0;
     margin-bottom: 24px;
+    position: relative;
   }
   .menu-tab {
     flex: 1;
-    padding: 10px;
-    font-size: 13px;
-    color: #8fa3b8;
+    padding: 12px 8px;
+    font-size: 12.5px;
+    color: var(--text-muted);
     cursor: pointer;
-    border-radius: 8px;
-    transition: all 0.2s;
+    border-radius: 0;
+    transition: all 0.25s var(--ease-smooth);
     font-weight: 600;
+    font-family: var(--font-display);
+    letter-spacing: 1px;
+    position: relative;
+    border-bottom: 2px solid transparent;
+    text-align: center;
   }
   .menu-tab:hover {
-    color: #eafcff;
-    background: rgba(255,255,255,0.02);
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.015);
   }
   .menu-tab.active {
-    color: #4ee6e0;
-    background: rgba(78,230,224,0.15);
-    border: 1px solid rgba(78,230,224,0.25);
+    color: var(--accent-primary);
+    border-bottom: 2px solid var(--accent-primary);
+    background: transparent;
+    text-shadow: 0 0 12px var(--accent-primary-glow);
   }
-  .tab-content {
-    display: none;
+  .menu-tab.active::after {
+    content:''; position:absolute; bottom:-2px; left:25%; right:25%; height:2px;
+    background: var(--accent-primary);
+    box-shadow: 0 0 8px var(--accent-primary-glow);
   }
+  .tab-content { display: none; }
   .tab-content.active {
     display: block;
+    animation: tabIn 0.35s var(--ease-smooth);
   }
-  
-  /* Skins List */
+  @keyframes tabIn { from{opacity:0; transform:translateX(10px)} to{opacity:1; transform:translateX(0)} }
+
+  /* ============ 涂装车间 ============ */
   .credits-display {
+    font-family: var(--font-display);
     font-size: 14px;
-    color: #e6a23e;
+    color: var(--accent-gold);
     margin-bottom: 16px;
-    font-weight: bold;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(245,200,66,0.06);
+    border: 1px solid rgba(245,200,66,0.2);
+    border-radius: var(--radius-pill);
+    letter-spacing: 0.5px;
   }
+  .credits-display i { font-size: 13px; }
   .skins-grid {
     display: flex;
     flex-direction: column;
     gap: 10px;
     max-height: 240px;
     overflow-y: auto;
-    padding-right: 4px;
+    padding-right: 6px;
     margin-bottom: 20px;
   }
+  .skins-grid::-webkit-scrollbar { width: 4px; }
+  .skins-grid::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); border-radius: 2px; }
+  .skins-grid::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 2px; }
   .skin-card {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.06);
     border-radius: 12px;
     padding: 10px 16px;
-    transition: all 0.2s;
+    transition: all 0.25s var(--ease-smooth);
   }
   .skin-card:hover {
-    border-color: rgba(78,230,224,0.3);
-    background: rgba(255,255,255,0.05);
+    border-color: var(--panel-border);
+    background: rgba(0,229,199,0.04);
+    transform: translateX(2px);
   }
   .skin-info {
     display: flex;
@@ -423,58 +649,60 @@
     gap: 12px;
   }
   .skin-color-preview {
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
-    border: 2px solid rgba(255,255,255,0.2);
+    width: 26px; height: 26px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.15);
+    clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+    transition: transform 0.3s var(--ease-smooth);
   }
-  .skin-name-container {
-    text-align: left;
-  }
+  .skin-card:hover .skin-color-preview { transform: rotate(8deg) scale(1.1); }
+  .skin-name-container { text-align: left; }
   .skin-name {
-    font-size: 14px;
-    font-weight: bold;
-    color: #dfeef5;
+    font-size: 13.5px; font-weight: 700; color: var(--text-primary);
+    font-family: var(--font-display); letter-spacing: 0.3px;
   }
   .skin-cost {
-    font-size: 11px;
-    color: #aebfd0;
+    font-size: 10.5px; color: var(--text-muted); margin-top: 2px;
   }
   .skin-btn {
-    padding: 6px 14px;
+    padding: 7px 14px;
     font-size: 12px;
     border-radius: 8px;
     cursor: pointer;
     font-weight: 700;
-    transition: all 0.2s;
+    transition: all 0.2s var(--ease-smooth);
     width: 80px;
     text-align: center;
+    font-family: var(--font-display);
+    letter-spacing: 0.5px;
   }
   .skin-btn.equip {
     background: transparent;
-    border: 1px solid #4ee6e0;
-    color: #4ee6e0;
+    border: 1px solid var(--accent-primary);
+    color: var(--accent-primary);
   }
   .skin-btn.equip:hover {
-    background: rgba(78,230,224,0.15);
+    background: rgba(0,229,199,0.12);
+    box-shadow: 0 0 10px rgba(0,229,199,0.2);
   }
   .skin-btn.equipped {
-    background: rgba(78,230,224,0.2);
-    border: 1px solid #4ee6e0;
-    color: #4ee6e0;
+    background: rgba(0,229,199,0.15);
+    border: 1px solid var(--accent-primary);
+    color: var(--accent-primary);
     cursor: default;
+    box-shadow: inset 0 0 0 1px rgba(0,229,199,0.1);
   }
   .skin-btn.buy {
-    background: #e6a23e;
-    color: #0c0f1d;
+    background: linear-gradient(135deg, var(--accent-warm), #e07020);
+    color: #1a0a02;
     border: none;
   }
   .skin-btn.buy:hover {
-    background: #f0b04c;
-    box-shadow: 0 0 10px rgba(230,162,62,0.3);
+    box-shadow: 0 4px 14px var(--accent-warm-glow);
+    transform: translateY(-1px);
   }
   
-  /* Leaderboard */
+  /* ============ 排行榜 ============ */
   .leaderboard-table {
     width: 100%;
     border-collapse: collapse;
@@ -482,100 +710,239 @@
     font-size: 13px;
   }
   .leaderboard-table th, .leaderboard-table td {
-    padding: 10px 6px;
+    padding: 11px 6px;
     text-align: center;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
   }
   .leaderboard-table th {
-    color: #5fb8c9;
+    color: var(--accent-primary);
     font-weight: 600;
-    font-family: 'Orbitron', monospace;
+    font-family: var(--font-display);
+    letter-spacing: 1px;
+    font-size: 11px;
+    text-transform: uppercase;
+    background: rgba(0,229,199,0.04);
+    border-bottom: 1px solid var(--panel-border-soft);
   }
   .leaderboard-table td {
-    color: #aebfd0;
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    transition: background 0.2s;
+  }
+  .leaderboard-table tbody tr:hover td {
+    background: rgba(0,229,199,0.03);
   }
   .leaderboard-table tr:first-child td {
-    color: #e6a23e; /* Gold for 1st place */
-    font-weight: bold;
-    text-shadow: 0 0 8px rgba(230,162,62,0.3);
+    color: var(--accent-gold);
+    font-weight: 700;
+    text-shadow: 0 0 10px rgba(245,200,66,0.4);
+    background: linear-gradient(90deg, transparent, rgba(245,200,66,0.06), transparent);
   }
 
-  /* Countdown */
+  /* ============ 倒计时 ============ */
   .countdown-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     display: flex; align-items: center; justify-content: center;
     z-index: 25; pointer-events: none;
   }
   .countdown-number {
-    font-family: 'Orbitron', monospace;
-    font-size: 120px; font-weight: 900; color: #4ee6e0;
-    text-shadow: 0 0 40px rgba(78,230,224,0.8), 0 0 80px rgba(78,230,224,0.4);
-    animation: countdownPulse 0.8s ease-out;
+    font-family: var(--font-display);
+    font-size: 130px; font-weight: 700; color: var(--accent-primary);
+    text-shadow:
+      -4px 0 rgba(255,0,80,0.5),
+      4px 0 rgba(0,229,199,0.5),
+      0 0 40px rgba(0,229,199,0.8),
+      0 0 80px rgba(0,229,199,0.4);
+    animation: countdownPulse 0.8s var(--ease-spring);
+    letter-spacing: 2px;
   }
   @keyframes countdownPulse {
-    0% { transform: scale(0.3); opacity: 0; }
-    50% { transform: scale(1.2); opacity: 1; }
-    100% { transform: scale(1.0); opacity: 0.9; }
+    0% { transform: scale(0.3) rotate(-5deg); opacity: 0; filter: blur(8px); }
+    50% { transform: scale(1.2) rotate(0deg); opacity: 1; filter: blur(0); }
+    100% { transform: scale(1.0) rotate(0deg); opacity: 0.9; filter: blur(0); }
   }
   .countdown-go {
-    font-family: 'Orbitron', monospace;
-    font-size: 90px; font-weight: 900; color: #e6a23e;
-    text-shadow: 0 0 40px rgba(230,162,62,0.8), 0 0 80px rgba(230,162,62,0.4);
-    animation: countdownPulse 0.6s ease-out;
+    font-family: var(--font-display);
+    font-size: 100px; font-weight: 700; color: var(--accent-warm);
+    text-shadow:
+      -4px 0 rgba(255,0,80,0.5),
+      4px 0 rgba(255,139,61,0.5),
+      0 0 40px rgba(255,139,61,0.8),
+      0 0 80px rgba(255,139,61,0.4);
+    animation: countdownPulse 0.6s var(--ease-spring);
+    letter-spacing: 4px;
   }
 
-  /* Near miss */
+  /* ============ 擦边提示 ============ */
   .near-miss-display {
-    position: absolute; top: 160px; left: 50%; transform: translateX(-50%);
-    font-family: 'Orbitron', monospace;
-    font-size: 20px; font-weight: 800; color: #fbbf24;
-    text-shadow: 0 0 12px rgba(251,191,36,0.7);
+    position: absolute; top: 165px; left: 50%; transform: translateX(-50%) scale(1);
+    font-family: var(--font-display);
+    font-size: 19px; font-weight: 700; color: var(--accent-gold);
+    text-shadow:
+      -2px 0 rgba(255,0,80,0.4),
+      2px 0 rgba(0,229,199,0.4),
+      0 0 14px rgba(245,200,66,0.7);
     opacity: 0;
-    transition: opacity 0.15s, transform 0.15s;
+    transition: opacity 0.15s var(--ease-smooth), transform 0.2s var(--ease-spring);
+    padding: 5px 16px;
+    background: rgba(8,12,22,0.55);
+    border: 1px solid rgba(245,200,66,0.3);
+    border-radius: var(--radius-pill);
+    backdrop-filter: blur(6px);
+    letter-spacing: 1.5px;
   }
 
-  /* Zone transition */
+  /* ============ 区域切换 ============ */
   .zone-flash {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     pointer-events: none; z-index: 8;
-    opacity: 0; transition: opacity 0.15s;
+    opacity: 0; transition: opacity 0.2s var(--ease-smooth);
   }
   .zone-name {
-    position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%);
-    font-family: 'Orbitron', monospace;
-    font-size: 36px; font-weight: 900;
-    text-shadow: 0 0 25px currentColor;
+    position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%) scale(1);
+    font-family: var(--font-display);
+    font-size: 38px; font-weight: 700;
+    text-shadow: 0 0 30px currentColor, 0 0 60px currentColor;
     opacity: 0;
-    transition: opacity 0.3s, transform 0.3s;
+    transition: opacity 0.4s var(--ease-smooth), transform 0.4s var(--ease-spring);
     z-index: 14;
+    letter-spacing: 2px;
   }
 
-  /* Energy warning blink */
+  /* ============ 伤害闪光 ============ */
+  .damage-flash {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255, 0, 0, 0.38);
+    pointer-events: none; z-index: 9;
+    opacity: 0; transition: opacity 0.1s;
+  }
+  .damage-flash.active { opacity: 1; }
+
+  /* ============ 挑战模式横幅 ============ */
+  .challenge-banner {
+    position: fixed; top: 60px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(249, 115, 22, 0.9);
+    color: #fff;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    opacity: 0; transition: opacity 0.5s;
+    z-index: 100; pointer-events: none;
+  }
+  .challenge-banner.show { opacity: 1; }
+
+  /* ============ 连击里程碑 ============ */
+  .combo-milestone {
+    position: fixed; top: 35%; left: 50%;
+    transform: translate(-50%, -50%) scale(1);
+    font-size: 42px; font-weight: 900;
+    opacity: 0; transition: all 0.3s;
+    z-index: 100; pointer-events: none;
+    text-shadow: 0 0 20px currentColor;
+  }
+  .combo-milestone.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+
+  /* ============ 能量警告 ============ */
   .energy-bar-container.warning {
     animation: energyBlink 0.6s infinite;
-    border-color: rgba(255, 80, 80, 0.7);
+    border-color: rgba(255, 77, 109, 0.7);
   }
   @keyframes energyBlink {
-    0%, 100% { box-shadow: 0 0 10px rgba(255, 80, 80, 0.3); }
-    50% { box-shadow: 0 0 20px rgba(255, 80, 80, 0.7); }
+    0%, 100% { box-shadow: 0 0 12px rgba(255, 77, 109, 0.35); }
+    50% { box-shadow: 0 0 24px rgba(255, 77, 109, 0.8); border-color: rgba(255,77,109,1); }
+  }
+  .energy-bar-container.warning .energy-bar {
+    background: linear-gradient(90deg, #FF4D6D, #ff8080, #FF4D6D);
   }
 
-  /* Score bonus display */
+  /* ============ 分数加成 ============ */
   .score-bonus {
-    font-size: 11px; color: #fbbf24; margin-top: 2px;
-    font-family: 'Orbitron', monospace;
+    font-size: 11px; color: var(--accent-gold); margin-top: 2px;
+    font-family: var(--font-display);
+    letter-spacing: 0.5px;
+    min-height: 14px;
   }
+
+  /* ============ 暂停/结束界面数据网格 ============ */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 18px 0 22px;
+  }
+  .stat-cell {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-left: 2px solid var(--accent-primary-soft);
+    border-radius: 10px;
+    padding: 12px 10px;
+    text-align: center;
+    transition: all 0.2s var(--ease-smooth);
+  }
+  .stat-cell:hover { border-left-color: var(--accent-primary); background: rgba(0,229,199,0.04); }
+  .stat-cell i {
+    font-size: 16px; color: var(--accent-primary); opacity: 0.8; margin-bottom: 4px;
+  }
+  .stat-cell .stat-label {
+    font-size: 9px; letter-spacing: 1.5px; color: var(--text-muted);
+    text-transform: uppercase; font-family: var(--font-display); margin-top: 2px;
+  }
+  .stat-cell .stat-num {
+    font-family: var(--font-display); font-size: 22px; font-weight: 700;
+    color: var(--text-primary); line-height: 1.1;
+    text-shadow: 0 0 10px var(--accent-primary-glow);
+  }
+
+  /* ============ 挑战对比进度条 ============ */
+  .challenge-compare-bar {
+    margin: 12px 0 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .challenge-compare-bar .cc-label {
+    display:flex; justify-content:space-between; font-size: 11px;
+    color: var(--text-muted); margin-bottom: 6px; font-family: var(--font-mono);
+  }
+  .challenge-compare-bar .cc-track {
+    height: 8px; background: rgba(0,0,0,0.4); border-radius: 4px; overflow: hidden; position: relative;
+  }
+  .challenge-compare-bar .cc-fill {
+    height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent-warm), var(--accent-gold));
+    transition: width 0.6s var(--ease-smooth);
+    box-shadow: 0 0 8px var(--accent-warm-glow);
+  }
+  .challenge-compare-bar .cc-marker {
+    position:absolute; top:-2px; width:2px; height:12px;
+    background: var(--accent-primary); box-shadow: 0 0 6px var(--accent-primary-glow);
+  }
+
+  #challengeCompare { margin: -8px 0 8px; font-size: 13px; line-height: 1.6; }
+  .challenge-beat { color: var(--accent-primary); }
+  .challenge-missed { color: var(--accent-warm); }
+
+  .leaderboard-empty { color: var(--text-muted); }
+  .challenge-tag { color: var(--accent-warm); font-size: 0.8em; }
 </style>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
-<div id="damageFlash" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,0,0,0.38); pointer-events:none; z-index:9; opacity:0; transition:opacity 0.1s;"></div>
+<div class="vignette-overlay"></div>
+<div class="scanline-overlay"></div>
+<div class="grain-overlay"></div>
 
-<div id="hud">
+<div id="damageFlash" class="damage-flash"></div>
+
+<div id="hud" class="hidden">
   <div class="hud-panel">
     <div class="score-label">距离 Distance</div>
-    <div class="score-value"><span id="scoreValue">0</span> m</div>
+    <div class="score-value"><span id="scoreValue">0</span><span class="unit">m</span></div>
     <div class="speed-row">速度 <span id="speedValue">9.0</span></div>
     <div class="score-bonus" id="scoreBonus"></div>
   </div>
@@ -583,26 +950,31 @@
     <div class="energy-bar" id="energyBar"></div>
   </div>
   <div class="energy-label">能量 ENERGY</div>
-  <div class="volume-slider">
-    <input type="range" id="volumeSlider" min="0" max="100" value="50">
-  </div>
-  <div class="audio-controls">
-    <div class="audio-btn" id="musicBtn">
-      <i class="fas fa-music"></i>
+  <div class="hud-toolbar">
+    <div class="volume-slider">
+      <input type="range" id="volumeSlider" min="0" max="100" value="50">
     </div>
-    <div class="audio-btn active" id="sfxBtn">
-      <i class="fas fa-volume-up"></i>
+    <div class="audio-controls">
+      <button type="button" class="audio-btn active" id="musicBtn" aria-label="切换音乐" aria-pressed="true">
+        <i class="fas fa-music"></i>
+      </button>
+      <button type="button" class="audio-btn active" id="sfxBtn" aria-label="切换音效" aria-pressed="true">
+        <i class="fas fa-volume-up"></i>
+      </button>
     </div>
-  </div>
-  <div class="pause-btn" id="pauseBtn">
-    <i class="fas fa-pause"></i>
+    <button type="button" class="pause-btn" id="pauseBtn" aria-label="暂停游戏">
+      <i class="fas fa-pause"></i>
+    </button>
   </div>
   <div class="controls-hint">PC: 方向键切墙/空格跳跃 | 手机: 滑屏切墙/上滑跳跃</div>
   <div class="combo-display" id="comboDisplay">COMBO x2</div>
   <div class="powerup-indicator" id="powerupIndicator">无敌 INVINCIBLE</div>
   <div class="achievement-popup" id="achievementPopup">
-    <div class="achievement-title" id="achievementTitle">成就解锁!</div>
-    <div class="achievement-desc" id="achievementDesc">连续切墙10次</div>
+    <div class="ach-icon"><i class="fas fa-trophy"></i></div>
+    <div class="ach-content">
+      <div class="achievement-title" id="achievementTitle">成就解锁!</div>
+      <div class="achievement-desc" id="achievementDesc">连续切墙10次</div>
+    </div>
   </div>
   <div class="speed-lines" id="speedLines"></div>
   <div class="near-miss-display" id="nearMissDisplay">NEAR MISS!</div>
@@ -611,30 +983,31 @@
 
 <div id="startScreen" class="overlay">
   <div class="panel">
+    <div class="panel-top-bar"></div>
     <h1>重力隧道<span class="accent">.</span></h1>
     <div class="subtitle">GRAVITY TUNNEL RUNNER</div>
     
-    <div class="menu-tabs">
-      <div class="menu-tab active" data-tab="play">开始游戏</div>
-      <div class="menu-tab" data-tab="skins">涂装车间</div>
-      <div class="menu-tab" data-tab="leaderboard">排行榜</div>
+    <div class="menu-tabs" role="tablist">
+      <button type="button" class="menu-tab active" data-tab="play" role="tab" aria-selected="true">开始游戏</button>
+      <button type="button" class="menu-tab" data-tab="skins" role="tab" aria-selected="false">涂装车间</button>
+      <button type="button" class="menu-tab" data-tab="leaderboard" role="tab" aria-selected="false">排行榜</button>
     </div>
     
     <!-- PLAY TAB CONTENT -->
     <div id="tab-play" class="tab-content active">
       <p class="desc">躲避障碍物！PC端使用方向键(←/→/↓)切墙，空格(Space)或↑键跳跃。移动端滑动屏幕切墙，向上滑动跳跃。</p>
       <div class="difficulty-selector">
-        <div class="difficulty-btn" data-difficulty="easy">简单</div>
-        <div class="difficulty-btn active" data-difficulty="normal">普通</div>
-        <div class="difficulty-btn" data-difficulty="hard">困难</div>
+        <button type="button" class="difficulty-btn" data-difficulty="easy" aria-pressed="false"><i class="fas fa-feather"></i>简单</button>
+        <button type="button" class="difficulty-btn active" data-difficulty="normal" aria-pressed="true"><i class="fas fa-bolt"></i>普通</button>
+        <button type="button" class="difficulty-btn" data-difficulty="hard" aria-pressed="false"><i class="fas fa-fire"></i>困难</button>
       </div>
       <div class="keys">
-        <div class="key">↑ / 屏幕上滑 <span>跳跃/消耗微量能量</span></div>
-        <div class="key">↓ / 屏幕下滑 <span>切换到对面墙</span></div>
-        <div class="key">← / 屏幕左滑 <span>切换到左侧墙</span></div>
-        <div class="key">→ / 屏幕右滑 <span>切换到右侧墙</span></div>
+        <div class="key"><i class="fas fa-arrow-up"></i><div class="key-body">↑ / 屏幕上滑 <span>跳跃/消耗微量能量</span></div></div>
+        <div class="key"><i class="fas fa-arrow-down"></i><div class="key-body">↓ / 屏幕下滑 <span>切换到对面墙</span></div></div>
+        <div class="key"><i class="fas fa-arrow-left"></i><div class="key-body">← / 屏幕左滑 <span>切换到左侧墙</span></div></div>
+        <div class="key"><i class="fas fa-arrow-right"></i><div class="key-body">→ / 屏幕右滑 <span>切换到右侧墙</span></div></div>
       </div>
-      <button id="startBtn">开始奔跑</button>
+      <button type="button" class="btn" id="startBtn">开始奔跑</button>
     </div>
     
     <!-- SKINS TAB CONTENT -->
@@ -667,33 +1040,57 @@
   </div>
 </div>
 
-<div id="pauseScreen" class="overlay" style="display:none;">
+<div id="pauseScreen" class="overlay hidden">
   <div class="panel">
+    <div class="panel-top-bar"></div>
     <h1>已暂停</h1>
     <div class="subtitle">PAUSED</div>
     <p class="desc">当前奔跑了 <span id="pauseScore" class="accent-num">0</span> 米</p>
-    <button id="resumeBtn">继续游戏</button>
-    <button id="quitBtn" style="margin-top:10px; background:linear-gradient(135deg,#ff6b6b,#ee5a5a);">退出游戏</button>
+    <button type="button" class="btn" id="resumeBtn">继续游戏</button>
+<button type="button" id="quitBtn" class="btn btn-danger">退出游戏</button>
   </div>
 </div>
 
-<div id="gameOverScreen" class="overlay" style="display:none;">
+<div id="gameOverScreen" class="overlay hidden">
   <div class="panel">
+    <div class="panel-top-bar"></div>
     <h1>坠落了</h1>
     <div class="subtitle">GAME OVER</div>
-    <p class="desc">本次奔跑了 <span id="finalScore" class="accent-num">0</span> 米</p>
-    <p class="desc">综合评分: <span id="finalComposite" class="accent-num">0</span></p>
-    <p class="desc">最高连击: <span id="finalCombo" class="accent-num">0</span></p>
-    <p class="desc">成就解锁: <span id="finalAchievements" class="accent-num">0</span></p>
-    <button id="restartBtn">再来一次（空格/点击）</button>
-    <button id="menuBtn" style="margin-top:10px; background:linear-gradient(135deg,#6b7bff,#5a6aee);">返回菜单</button>
+    <div class="stats-grid">
+      <div class="stat-cell">
+        <i class="fas fa-route"></i>
+        <div class="stat-num"><span id="finalScore">0</span> m</div>
+        <div class="stat-label">距离</div>
+      </div>
+      <div class="stat-cell">
+        <i class="fas fa-star"></i>
+        <div class="stat-num" id="finalComposite">0</div>
+        <div class="stat-label">综合评分</div>
+      </div>
+      <div class="stat-cell">
+        <i class="fas fa-fire"></i>
+        <div class="stat-num" id="finalCombo">0</div>
+        <div class="stat-label">最高连击</div>
+      </div>
+      <div class="stat-cell">
+        <i class="fas fa-trophy"></i>
+        <div class="stat-num" id="finalAchievements">0</div>
+        <div class="stat-label">成就解锁</div>
+      </div>
+    </div>
+    <div id="challengeCompare" class="hidden"></div>
+    <button type="button" class="btn" id="restartBtn">再来一次（空格/点击）</button>
+<button type="button" id="shareBtn" class="btn btn-success">分享此地图</button>
+<button type="button" id="menuBtn" class="btn btn-secondary">返回菜单</button>
   </div>
 </div>
 
-<div class="countdown-overlay" id="countdownOverlay" style="display:none;">
+<div class="countdown-overlay hidden" id="countdownOverlay">
   <div id="countdownText" class="countdown-number">3</div>
 </div>
 <div class="zone-flash" id="zoneFlash"></div>
+<div id="challengeBanner" class="challenge-banner"></div>
+<div id="comboMilestone" class="combo-milestone"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
@@ -703,7 +1100,281 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
 <script>
+// ============ IIFE 封装：避免全局命名空间污染 ============
+(function() {
+'use strict';
+
+// ============ URL种子检测（可分享链接） ============
+let isChallengeMode = false;
+let challengeData = null;
+const urlParams = new URLSearchParams(window.location.search);
+const urlSeed = urlParams.get('seed');
+const urlScore = urlParams.get('s');
+const urlCombo = urlParams.get('c');
+if (urlSeed) {
+  const parsedSeed = parseInt(urlSeed, 36);
+  if (!isNaN(parsedSeed)) {
+    isChallengeMode = true;
+    challengeData = {
+      seed: parsedSeed,
+      score: urlScore ? parseInt(urlScore) : 0,
+      combo: urlCombo ? parseInt(urlCombo) : 0
+    };
+  }
+}
+
+// ============ 通用工具：localStorage 安全访问 ============
+function safeGetItem(key, fallback) {
+  try { return localStorage.getItem(key); }
+  catch (e) { return fallback; }
+}
+function safeParseJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) return fallback;
+    return JSON.parse(raw);
+  } catch (e) { return fallback; }
+}
+function safeSetItem(key, value) {
+  try { localStorage.setItem(key, value); }
+  catch (e) { /* 隐私模式或配额满，静默降级 */ }
+}
+
+// ============ 核心配置常量 ============
+const CONFIG = {
+  // 玩法数值
+  BASE_SPEED: 9,
+  SPEED_ACCEL: 0.34,
+  BOOST_SPEED_MULT: 1.85,
+  JUMP_ENERGY_COST: 2,
+  WALL_SWITCH_ENERGY_COST: 1,
+  ENERGY_REFILL_AMOUNT: 35,
+  COLLISION_ENERGY_PENALTY: 35,
+  POWERUP_BONUS: 50,
+  // 道具持续时间（秒）
+  POWERUP_DURATIONS: { magnet: 8.0, boost: 4.0, invincible: 3.5 },
+  // 碰撞箱阈值
+  PLAYER_HITBOX_Y: 0.68,
+  LATERAL_HIT_THRESHOLD: 1.2,
+  OBSTACLE_SIZE: 1.15,
+  // 输入
+  SWIPE_THRESHOLD_PX: 30,
+  // 综合评分系数
+  SCORE_BONUS: { easy: 1.0, normal: 1.2, hard: 1.5 },
+  COMBO_MULT_MAX: 3.0,
+  COMBO_MULT_STEP: 0.1,
+  // localStorage 键名
+  STORAGE_KEYS: {
+    LEADERBOARD: 'g_tunnel_leaderboard',
+    ACHIEVEMENTS: 'g_tunnel_achievements',
+    CUMULATIVE_POWERUPS: 'g_tunnel_cumulative_powerups',
+    CREDITS: 'g_tunnel_credits',
+    UNLOCKED_SKINS: 'g_tunnel_unlocked_skins',
+    CURRENT_SKIN: 'g_tunnel_current_skin'
+  }
+};
+
+// ============ 统一色表（与 CSS --accent-* 对齐） ============
+const COLORS = {
+  PRIMARY: 0x00E5C7,
+  WARM: 0xFF8B3D,
+  GOLD: 0xF5C842,
+  DANGER: 0xFF4D6D,
+  SHIELD: 0x3b82f6,
+  MAGNET: 0xef4444,
+  BOOST: 0x10b981,
+  PURPLE: 0x8b5cf6,
+  PINK: 0xe63ee0,
+  ORANGE: 0xf97316
+};
+
+// 道具颜色映射（单一数据源，供材质/粒子/指示器共用）
+const POWERUP_COLORS = {
+  energy: COLORS.PRIMARY,
+  invincible: COLORS.WARM,
+  shield: COLORS.SHIELD,
+  magnet: COLORS.MAGNET,
+  boost: COLORS.BOOST
+};
+
+// 道具指示器文案表（颜色从 POWERUP_COLORS 派生，避免重复硬编码）
+const POWERUP_INDICATORS = {
+  energy:     '能量充满 FULL ENERGY',
+  invincible: '神速无敌 INVINCIBLE',
+  shield:     '护盾充能 SHIELD ON',
+  magnet:     '磁力吸引 MAGNET ON',
+  boost:      '超速冲刺 HYPERDRIVE'
+};
+
+// 将数字色值转换为 CSS hex 字符串（如 0x00E5C7 -> '#00e5c7'）
+function hexToCss(hex) {
+  return '#' + hex.toString(16).padStart(6, '0');
+}
+
+// 震动反馈模式
+const HAPTIC_PATTERNS = {
+  wallSwitch: 15,
+  jump: [20, 10, 20],
+  collision: 20,
+  damage: [15, 5, 25]
+};
+
 // ============ 音频系统 ============
+// ===== 音乐预设：5 区域 × 3 情绪 + 菜单 =====
+// 频率单位 Hz，null 表示休止
+// drums: 'none'|'soft'|'mid'|'full' 控制鼓组活跃度
+const MUSIC_PRESETS = {
+  // Zone 1 霓虹起点：A 小调，明亮电子，triangle lead
+  zone1: {
+    ambient: {
+      bpm: 88,
+      bass: [110, null, null, null, 110, null, null, null, 146.83, null, null, null, 98, null, null, null],
+      lead: [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+      arp: [220, 261.63, 329.63, 440, 220, 261.63, 329.63, 440, 220, 261.63, 329.63, 440, 220, 261.63, 329.63, 440],
+      pad: [[220, 261.63, 329.63], [196, 246.94, 293.66], [174.61, 220, 261.63], [196, 246.94, 293.66]],
+      drums: 'none', leadType: 'triangle', bassType: 'sine'
+    },
+    cruise: {
+      bpm: 110,
+      bass: [110, null, 110, null, 146.83, null, 146.83, null, 98, null, 98, null, 110, null, 110, null],
+      lead: [440, null, null, 523.25, null, 659.25, null, null, 587.33, null, null, 523.25, null, 440, null, null],
+      arp: [220, 329.63, 440, 523.25, 220, 329.63, 440, 523.25, 196, 293.66, 392, 493.88, 220, 329.63, 440, 523.25],
+      pad: [[220, 261.63, 329.63], [196, 246.94, 293.66], [174.61, 220, 261.63], [196, 246.94, 293.66]],
+      drums: 'mid', leadType: 'triangle', bassType: 'sawtooth'
+    },
+    intense: {
+      bpm: 140,
+      bass: [110, 110, 146.83, 146.83, 98, 98, 110, 110, 110, 110, 146.83, 146.83, 98, 98, 110, 110],
+      lead: [440, 523.25, 659.25, 880, 659.25, 523.25, 440, 587.33, 523.25, 659.25, 880, 1046.50, 880, 659.25, 523.25, 440],
+      arp: [440, 523.25, 659.25, 880, 440, 523.25, 659.25, 880, 392, 493.88, 587.33, 783.99, 440, 523.25, 659.25, 880],
+      pad: [[220, 261.63, 329.63, 440], [196, 246.94, 293.66, 392], [174.61, 220, 261.63, 349.23], [196, 246.94, 293.66, 392]],
+      drums: 'full', leadType: 'triangle', bassType: 'sawtooth'
+    }
+  },
+  // Zone 2 脉冲幽谷：D Phrygian，深沉神秘，sine lead + sub bass
+  zone2: {
+    ambient: {
+      bpm: 84,
+      bass: [73.42, null, null, null, 73.42, null, null, null, 69.30, null, null, null, 65.41, null, null, null],
+      lead: [null, null, null, null, null, null, 293.66, null, null, null, null, null, null, 261.63, null, null],
+      arp: [146.83, 174.61, 220, 293.66, 146.83, 174.61, 220, 293.66, 138.59, 174.61, 220, 277.18, 130.81, 174.61, 220, 261.63],
+      pad: [[146.83, 174.61, 220], [138.59, 174.61, 220], [130.81, 174.61, 220], [138.59, 174.61, 220]],
+      drums: 'none', leadType: 'sine', bassType: 'sine'
+    },
+    cruise: {
+      bpm: 104,
+      bass: [73.42, null, 73.42, null, 69.30, null, 69.30, null, 65.41, null, 65.41, null, 73.42, null, 73.42, null],
+      lead: [293.66, null, null, 349.23, null, 392, null, null, 329.63, null, null, 293.66, null, 261.63, null, null],
+      arp: [146.83, 220, 293.66, 349.23, 146.83, 220, 293.66, 349.23, 138.59, 220, 277.18, 349.23, 130.81, 220, 261.63, 329.63],
+      pad: [[146.83, 174.61, 220], [138.59, 174.61, 220], [130.81, 174.61, 220], [138.59, 174.61, 220]],
+      drums: 'mid', leadType: 'sine', bassType: 'sine'
+    },
+    intense: {
+      bpm: 132,
+      bass: [73.42, 73.42, 69.30, 69.30, 65.41, 65.41, 73.42, 73.42, 73.42, 73.42, 69.30, 69.30, 65.41, 65.41, 73.42, 73.42],
+      lead: [293.66, 349.23, 392, 466.16, 392, 349.23, 293.66, 329.63, 349.23, 392, 466.16, 587.33, 466.16, 392, 349.23, 293.66],
+      arp: [293.66, 349.23, 440, 587.33, 293.66, 349.23, 440, 587.33, 277.18, 349.23, 440, 554.37, 261.63, 349.23, 440, 523.25],
+      pad: [[146.83, 174.61, 220, 293.66], [138.59, 174.61, 220, 277.18], [130.81, 174.61, 220, 261.63], [138.59, 174.61, 220, 277.18]],
+      drums: 'full', leadType: 'sine', bassType: 'sawtooth'
+    }
+  },
+  // Zone 3 熔岩地带：E 和声小调，失真 lead，激进
+  zone3: {
+    ambient: {
+      bpm: 92,
+      bass: [82.41, null, null, null, 82.41, null, null, null, 98, null, null, null, 73.42, null, null, null],
+      lead: [null, null, null, null, 329.63, null, null, null, null, null, null, null, 293.66, null, null, null],
+      arp: [164.81, 196, 246.94, 329.63, 164.81, 196, 246.94, 329.63, 155.56, 196, 246.94, 311.13, 146.83, 196, 246.94, 293.66],
+      pad: [[164.81, 196, 246.94], [155.56, 196, 246.94], [146.83, 196, 246.94], [155.56, 196, 246.94]],
+      drums: 'soft', leadType: 'sawtooth', bassType: 'sine'
+    },
+    cruise: {
+      bpm: 115,
+      bass: [82.41, null, 82.41, null, 98, null, 98, null, 73.42, null, 73.42, null, 82.41, null, 82.41, null],
+      lead: [329.63, null, null, 392, null, 466.16, null, null, 369.99, null, null, 329.63, null, 293.66, null, null],
+      arp: [164.81, 246.94, 329.63, 392, 164.81, 246.94, 329.63, 392, 155.56, 246.94, 311.13, 392, 146.83, 246.94, 293.66, 369.99],
+      pad: [[164.81, 196, 246.94], [155.56, 196, 246.94], [146.83, 196, 246.94], [155.56, 196, 246.94]],
+      drums: 'mid', leadType: 'sawtooth', bassType: 'sawtooth'
+    },
+    intense: {
+      bpm: 145,
+      bass: [82.41, 82.41, 98, 98, 73.42, 73.42, 82.41, 82.41, 82.41, 82.41, 98, 98, 73.42, 73.42, 82.41, 82.41],
+      lead: [329.63, 392, 466.16, 587.33, 466.16, 392, 329.63, 369.99, 392, 466.16, 587.33, 698.46, 587.33, 466.16, 392, 329.63],
+      arp: [329.63, 392, 466.16, 587.33, 329.63, 392, 466.16, 587.33, 311.13, 392, 466.16, 622.25, 293.66, 392, 466.16, 587.33],
+      pad: [[164.81, 196, 246.94, 329.63], [155.56, 196, 246.94, 311.13], [146.83, 196, 246.94, 293.66], [155.56, 196, 246.94, 311.13]],
+      drums: 'full', leadType: 'sawtooth', bassType: 'sawtooth'
+    }
+  },
+  // Zone 4 黑客矩阵：F# 小调，方波 arp，故障感
+  zone4: {
+    ambient: {
+      bpm: 96,
+      bass: [92.50, null, null, null, 92.50, null, null, null, 110, null, null, null, 82.41, null, null, null],
+      lead: [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+      arp: [185, 220, 277.18, 369.99, 185, 220, 277.18, 369.99, 220, 277.18, 329.63, 440, 164.81, 220, 277.18, 349.23],
+      pad: [[185, 220, 277.18], [220, 277.18, 329.63], [164.81, 220, 277.18], [185, 220, 277.18]],
+      drums: 'soft', leadType: 'square', bassType: 'square'
+    },
+    cruise: {
+      bpm: 118,
+      bass: [92.50, null, 92.50, null, 110, null, 110, null, 82.41, null, 82.41, null, 92.50, null, 92.50, null],
+      lead: [369.99, null, null, 440, null, 554.37, null, null, 440, null, null, 369.99, null, 329.63, null, null],
+      arp: [185, 277.18, 369.99, 440, 185, 277.18, 369.99, 440, 220, 277.18, 329.63, 440, 164.81, 277.18, 349.23, 440],
+      pad: [[185, 220, 277.18], [220, 277.18, 329.63], [164.81, 220, 277.18], [185, 220, 277.18]],
+      drums: 'mid', leadType: 'square', bassType: 'square'
+    },
+    intense: {
+      bpm: 148,
+      bass: [92.50, 92.50, 110, 110, 82.41, 82.41, 92.50, 92.50, 92.50, 92.50, 110, 110, 82.41, 82.41, 92.50, 92.50],
+      lead: [369.99, 440, 554.37, 698.46, 554.37, 440, 369.99, 440, 440, 554.37, 698.46, 880, 698.46, 554.37, 440, 369.99],
+      arp: [369.99, 440, 554.37, 698.46, 369.99, 440, 554.37, 698.46, 329.63, 440, 554.37, 698.46, 349.23, 440, 554.37, 698.46],
+      pad: [[185, 220, 277.18, 369.99], [220, 277.18, 329.63, 440], [164.81, 220, 277.18, 349.23], [185, 220, 277.18, 369.99]],
+      drums: 'full', leadType: 'square', bassType: 'square'
+    }
+  },
+  // Zone 5 黄金传说：C 大调，管弦史诗，大调和弦
+  zone5: {
+    ambient: {
+      bpm: 90,
+      bass: [130.81, null, null, null, 98, null, null, null, 110, null, null, null, 130.81, null, null, null],
+      lead: [null, null, 523.25, null, null, null, 392, null, null, null, 440, null, null, null, 523.25, null],
+      arp: [261.63, 329.63, 392, 523.25, 261.63, 329.63, 392, 523.25, 196, 261.63, 329.63, 392, 220, 261.63, 329.63, 440],
+      pad: [[261.63, 329.63, 392, 523.25], [196, 261.63, 329.63, 392], [220, 277.18, 349.23, 440], [261.63, 329.63, 392, 523.25]],
+      drums: 'soft', leadType: 'triangle', bassType: 'sine'
+    },
+    cruise: {
+      bpm: 112,
+      bass: [130.81, null, 130.81, null, 98, null, 98, null, 110, null, 110, null, 130.81, null, 130.81, null],
+      lead: [523.25, null, null, 659.25, null, 783.99, null, null, 587.33, null, null, 523.25, null, 440, null, null],
+      arp: [523.25, 659.25, 783.99, 1046.50, 523.25, 659.25, 783.99, 1046.50, 392, 523.25, 659.25, 783.99, 440, 523.25, 659.25, 880],
+      pad: [[261.63, 329.63, 392, 523.25], [196, 261.63, 329.63, 392], [220, 277.18, 349.23, 440], [261.63, 329.63, 392, 523.25]],
+      drums: 'mid', leadType: 'triangle', bassType: 'sawtooth'
+    },
+    intense: {
+      bpm: 144,
+      bass: [130.81, 130.81, 98, 98, 110, 110, 130.81, 130.81, 130.81, 130.81, 98, 98, 110, 110, 130.81, 130.81],
+      lead: [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25, 523.25, 587.33, 659.25, 783.99, 1046.50, 1318.51, 1046.50, 783.99, 659.25, 523.25],
+      arp: [523.25, 659.25, 783.99, 1046.50, 523.25, 659.25, 783.99, 1046.50, 392, 523.25, 659.25, 783.99, 440, 523.25, 659.25, 880],
+      pad: [[261.63, 329.63, 392, 523.25], [196, 261.63, 329.63, 392], [220, 277.18, 349.23, 440], [261.63, 329.63, 392, 523.25]],
+      drums: 'full', leadType: 'triangle', bassType: 'sawtooth'
+    }
+  },
+  // 菜单氛围乐：C 大调，ambient pad + 缓慢 arp，无鼓
+  menu: {
+    ambient: {
+      bpm: 72,
+      bass: [65.41, null, null, null, null, null, null, null, 73.42, null, null, null, null, null, null, null],
+      lead: [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+      arp: [261.63, 329.63, 392, 523.25, 329.63, 392, 523.25, 659.25, 293.66, 369.99, 440, 587.33, 329.63, 392, 523.25, 659.25],
+      pad: [[130.81, 196, 261.63, 329.63], [146.83, 220, 293.66, 369.99], [164.81, 246.94, 329.63, 392], [146.83, 220, 293.66, 369.99]],
+      drums: 'none', leadType: 'sine', bassType: 'sine'
+    }
+  }
+};
+
+// 情绪判定阈值（按玩家速度）
+const MOOD_THRESHOLDS = { ambientMax: 11, cruiseMax: 16 }; // <11=ambient, 11~16=cruise, >16=intense
+
 class AudioManager {
   constructor() {
     this.audioContext = null;
@@ -720,29 +1391,140 @@ class AudioManager {
     this.windSource = null;
     this.windGain = null;
     this.windFilter = null;
+    this.windHighFilter = null;   // 高频层 bandpass
+    this.windHighGain = null;     // 高频层 gain
+    this.windPanner = null;       // 低频层立体声
+    this.windHighPanner = null;   // 高频层立体声
+    this.windLFO = null;          // 阵风慢速 LFO
+    this.windLFOGain = null;      // LFO→gain 调制
+
+    // ===== 新增：效果总线 =====
+    this.reverbNode = null;       // 共享卷积混响
+    this.musicReverbGain = null;  // 音乐→混响 送量
+    this.sfxReverbGain = null;    // 音效→混响 送量
+    this.masterFilter = null;     // 主低通（高速闷感）
+    this.masterFilterGain = null; // 经过 masterFilter 的总送量
+    this.distortionCurve = null;  // 预生成失真曲线
+
+    // ===== 新增：分层音乐引擎状态 =====
+    this.currentZone = 1;         // 当前区域 1~5
+    this.currentMood = 'cruise';  // 'ambient' | 'cruise' | 'intense'
+    this.moodIntensity = { ambient: 0, cruise: 1, intense: 0 }; // 三层平滑权重
+    this.targetMoodIntensity = { ambient: 0, cruise: 1, intense: 0 };
+    this.musicLookaheadTimer = null;
+    this.nextStepTime = 0;
+    this.stepIndex = 0;
+    this.barCount = 0;
+    this.isMenuMusic = false;     // 是否在播放菜单配乐
+    this.menuMusicNodes = [];
+
+    // ===== 新增：风噪第二层（高频气流） =====
+    this.windHighSource = null;
+    this.windHighFilter = null;
+    this.windHighGain = null;
+    this.windPanner = null;
+
+    // ===== 新增：层独立增益（用于情绪交叉淡化） =====
+    this.layerGains = {}; // { kick, hat, bass, lead, pad, arp, perc }
   }
 
   init() {
     if (this.initialized) return;
-    
+
     try {
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
       this.masterGain = this.audioContext.createGain();
       this.masterGain.gain.value = this.volume;
       this.masterGain.connect(this.audioContext.destination);
-      
+
+      // ===== 效果总线：主低通滤波器（隧道闷感） =====
+      this.masterFilter = this.audioContext.createBiquadFilter();
+      this.masterFilter.type = 'lowpass';
+      this.masterFilter.frequency.value = 8000;
+      this.masterFilter.Q.value = 0.5;
+      this.masterFilterGain = this.audioContext.createGain();
+      this.masterFilterGain.gain.value = 1.0;
+      this.masterFilter.connect(this.masterFilterGain);
+      this.masterFilterGain.connect(this.masterGain);
+
+      // ===== 效果总线：卷积混响 =====
+      this.reverbNode = this.audioContext.createConvolver();
+      this.reverbNode.buffer = this._createReverbIR(2.2, 2.5);
+      this.musicReverbGain = this.audioContext.createGain();
+      this.musicReverbGain.gain.value = 0.28;
+      this.sfxReverbGain = this.audioContext.createGain();
+      this.sfxReverbGain.gain.value = 0.18;
+      this.musicReverbGain.connect(this.reverbNode);
+      this.sfxReverbGain.connect(this.reverbNode);
+      this.reverbNode.connect(this.masterFilter);
+
+      // ===== 音乐/音效 Gain（保留原接口） =====
       this.musicGain = this.audioContext.createGain();
       this.musicGain.gain.value = 0.3;
-      this.musicGain.connect(this.masterGain);
-      
+      this.musicGain.connect(this.masterFilter);
+      this.musicGain.connect(this.musicReverbGain); // 送一份到混响
+
       this.sfxGain = this.audioContext.createGain();
       this.sfxGain.gain.value = 0.65;
-      this.sfxGain.connect(this.masterGain);
-      
+      this.sfxGain.connect(this.masterFilter);
+      this.sfxGain.connect(this.sfxReverbGain); // 送一份到混响
+
+      // ===== 预生成失真曲线 =====
+      this.distortionCurve = this._makeDistortionCurve(40);
+
+      // ===== 初始化层增益节点 =====
+      ['kick', 'hat', 'bass', 'lead', 'pad', 'arp', 'perc'].forEach(name => {
+        const g = this.audioContext.createGain();
+        g.gain.value = 0;
+        g.connect(this.musicGain);
+        this.layerGains[name] = g;
+      });
+
       this.initialized = true;
     } catch (e) {
       console.error('Audio initialization failed:', e);
     }
+  }
+
+  // ===== 工具：生成卷积混响 impulse response =====
+  _createReverbIR(duration, decay) {
+    const sr = this.audioContext.sampleRate;
+    const len = sr * duration;
+    const ir = this.audioContext.createBuffer(2, len, sr);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+      }
+    }
+    return ir;
+  }
+
+  // ===== 工具：生成失真曲线 =====
+  _makeDistortionCurve(amount) {
+    const k = amount;
+    const n = 256;
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / n - 1;
+      curve[i] = ((3 + k) * x * 20 * (Math.PI / 180)) / (Math.PI + k * Math.abs(x));
+    }
+    return curve;
+  }
+
+  // ===== 工具：创建失真节点 =====
+  _createDistortion(amount = 40) {
+    const ws = this.audioContext.createWaveShaper();
+    ws.curve = this.distortionCurve;
+    ws.oversample = '2x';
+    return ws;
+  }
+
+  // ===== 工具：创建立体声 panner =====
+  _createPan(value = 0) {
+    const p = this.audioContext.createStereoPanner();
+    p.pan.value = value;
+    return p;
   }
 
   setVolume(value) {
@@ -773,239 +1555,643 @@ class AudioManager {
     return this.sfxEnabled;
   }
 
-  createOscillator(type, frequency, startTime, duration, gainNode, targetFreq = null) {
-    const oscillator = this.audioContext.createOscillator();
-    oscillator.type = type;
-    oscillator.frequency.setValueAtTime(frequency, startTime);
-    if (targetFreq) {
-      oscillator.frequency.exponentialRampToValueAtTime(targetFreq, startTime + duration);
-    }
-    
-    const envelope = this.audioContext.createGain();
-    envelope.connect(gainNode);
-    
-    envelope.gain.setValueAtTime(0, startTime);
-    envelope.gain.linearRampToValueAtTime(0.35, startTime + duration * 0.15);
-    envelope.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-    
-    oscillator.connect(envelope);
-    oscillator.start(startTime);
-    oscillator.stop(startTime + duration);
-    
-    return oscillator;
+  // ===== 工具：生成噪声 buffer（供音效滤波扫频使用） =====
+  _noiseBuffer(duration) {
+    const len = Math.floor(this.audioContext.sampleRate * duration);
+    const buf = this.audioContext.createBuffer(1, len, this.audioContext.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    return buf;
   }
 
+  // ===== 动作音效 =====
   playJump() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
-    this.createOscillator('sine', 380, now, 0.18, this.sfxGain, 650);
-    this.createOscillator('triangle', 480, now, 0.14, this.sfxGain, 750);
+    // 主体：sine + triangle 上升，经失真
+    const osc1 = this.audioContext.createOscillator();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(380, now);
+    osc1.frequency.exponentialRampToValueAtTime(650, now + 0.18);
+    const osc2 = this.audioContext.createOscillator();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(480, now);
+    osc2.frequency.exponentialRampToValueAtTime(750, now + 0.14);
+    const dist = this._createDistortion(15);
+    const env = this.audioContext.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.26, now + 0.02);
+    env.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc1.connect(dist); osc2.connect(dist); dist.connect(env); env.connect(this.sfxGain);
+    osc1.start(now); osc1.stop(now + 0.2);
+    osc2.start(now); osc2.stop(now + 0.16);
+    // swoosh 层：噪声 highpass 扫频
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = this._noiseBuffer(0.22);
+    const hp = this.audioContext.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.setValueAtTime(800, now);
+    hp.frequency.exponentialRampToValueAtTime(4000, now + 0.18);
+    const ng = this.audioContext.createGain();
+    ng.gain.setValueAtTime(0, now);
+    ng.gain.linearRampToValueAtTime(0.1, now + 0.03);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    noise.connect(hp); hp.connect(ng); ng.connect(this.sfxGain);
+    noise.start(now); noise.stop(now + 0.24);
   }
 
   playWallSwitch() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
+    // 扫频 sawtooth + lowpass + 失真（金属切变）
     const osc = this.audioContext.createOscillator();
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(150, now);
     osc.frequency.exponentialRampToValueAtTime(450, now + 0.12);
-    
     const filter = this.audioContext.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(600, now);
     filter.frequency.exponentialRampToValueAtTime(1600, now + 0.12);
-    
-    const envelope = this.audioContext.createGain();
-    envelope.gain.setValueAtTime(0, now);
-    envelope.gain.linearRampToValueAtTime(0.25, now + 0.02);
-    envelope.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-    
-    osc.connect(filter);
-    filter.connect(envelope);
-    envelope.connect(this.sfxGain);
-    
-    osc.start(now);
-    osc.stop(now + 0.12);
+    const dist = this._createDistortion(25);
+    const env = this.audioContext.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.22, now + 0.02);
+    env.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+    osc.connect(filter); filter.connect(dist); dist.connect(env); env.connect(this.sfxGain);
+    osc.start(now); osc.stop(now + 0.14);
+    // click 层：短噪声 highpass
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = this._noiseBuffer(0.05);
+    const hp = this.audioContext.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 3000;
+    const ng = this.audioContext.createGain();
+    ng.gain.setValueAtTime(0.15, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    noise.connect(hp); hp.connect(ng); ng.connect(this.sfxGain);
+    noise.start(now); noise.stop(now + 0.06);
   }
 
   playCollision() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
-    this.createNoise(0.35, 0.45, this.sfxGain);
-    this.createOscillator('sawtooth', 90, now, 0.3, this.sfxGain, 30);
-    this.createOscillator('square', 120, now, 0.25, this.sfxGain, 40);
+    // 低频 thud：sine 80→30 + 失真
+    const thud = this.audioContext.createOscillator();
+    thud.type = 'sine';
+    thud.frequency.setValueAtTime(80, now);
+    thud.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+    const dist = this._createDistortion(50);
+    const thudEnv = this.audioContext.createGain();
+    thudEnv.gain.setValueAtTime(0.5, now);
+    thudEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    thud.connect(dist); dist.connect(thudEnv); thudEnv.connect(this.sfxGain);
+    thud.start(now); thud.stop(now + 0.36);
+    // 金属碎片：噪声 bandpass 高频扫频 + 立体声随机偏移
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = this._noiseBuffer(0.25);
+    const bp = this.audioContext.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(2500, now);
+    bp.frequency.linearRampToValueAtTime(4500, now + 0.2);
+    bp.Q.value = 2;
+    const pan = this._createPan((Math.random() - 0.5) * 0.8);
+    const ng = this.audioContext.createGain();
+    ng.gain.setValueAtTime(0.35, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    noise.connect(bp); bp.connect(pan); pan.connect(ng); ng.connect(this.sfxGain);
+    noise.start(now); noise.stop(now + 0.26);
   }
 
   collectPowerup(type) {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
-    
+
     if (type === 'energy') {
-      const frequencies = [523.25, 659.25, 783.99, 1046.50];
-      frequencies.forEach((freq, i) => {
-        this.createOscillator('sine', freq, now + i * 0.05, 0.12, this.sfxGain);
+      // bell 质感：sine + triangle 倍频叠加
+      const freqs = [523.25, 659.25, 783.99, 1046.50];
+      freqs.forEach((f, i) => {
+        const t = now + i * 0.05;
+        const s = this.audioContext.createOscillator();
+        s.type = 'sine'; s.frequency.value = f;
+        const tri = this.audioContext.createOscillator();
+        tri.type = 'triangle'; tri.frequency.value = f * 2;
+        const env = this.audioContext.createGain();
+        env.gain.setValueAtTime(0, t);
+        env.gain.linearRampToValueAtTime(0.18, t + 0.01);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+        s.connect(env); tri.connect(env); env.connect(this.sfxGain);
+        s.start(t); s.stop(t + 0.32);
+        tri.start(t); tri.stop(t + 0.32);
       });
     } else if (type === 'invincible') {
-      const frequencies = [329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
-      frequencies.forEach((freq, i) => {
-        this.createOscillator('triangle', freq, now + i * 0.04, 0.25, this.sfxGain);
+      // power 层：sawtooth 低八度持续 + 上行琶音 + 失真
+      const power = this.audioContext.createOscillator();
+      power.type = 'sawtooth'; power.frequency.value = 110;
+      const dist = this._createDistortion(30);
+      const pEnv = this.audioContext.createGain();
+      pEnv.gain.setValueAtTime(0, now);
+      pEnv.gain.linearRampToValueAtTime(0.15, now + 0.05);
+      pEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      power.connect(dist); dist.connect(pEnv); pEnv.connect(this.sfxGain);
+      power.start(now); power.stop(now + 0.52);
+      const freqs = [329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+      freqs.forEach((f, i) => {
+        const t = now + i * 0.04;
+        const s = this.audioContext.createOscillator();
+        s.type = 'triangle'; s.frequency.value = f;
+        const env = this.audioContext.createGain();
+        env.gain.setValueAtTime(0, t);
+        env.gain.linearRampToValueAtTime(0.2, t + 0.01);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+        s.connect(env); env.connect(this.sfxGain);
+        s.start(t); s.stop(t + 0.27);
       });
     } else if (type === 'shield') {
-      const frequencies = [587.33, 739.99, 880.00, 1174.66];
-      frequencies.forEach((freq, i) => {
-        this.createOscillator('sine', freq, now + i * 0.03, 0.2, this.sfxGain);
+      // 金属共振：3 个 sine 倍频 + amplitude modulation
+      const freqs = [587.33, 1174.66, 1761.99];
+      freqs.forEach((f, i) => {
+        const t = now + i * 0.03;
+        const s = this.audioContext.createOscillator();
+        s.type = 'sine'; s.frequency.value = f;
+        const lfo = this.audioContext.createOscillator();
+        lfo.frequency.value = 30 + i * 10;
+        const lfoGain = this.audioContext.createGain(); lfoGain.gain.value = 0.08;
+        const env = this.audioContext.createGain();
+        env.gain.value = 0.15;
+        lfo.connect(lfoGain); lfoGain.connect(env.gain);
+        s.connect(env); env.connect(this.sfxGain);
+        s.start(t); s.stop(t + 0.25);
+        lfo.start(t); lfo.stop(t + 0.25);
       });
     } else if (type === 'magnet') {
-      this.createOscillator('sine', 440, now, 0.25, this.sfxGain, 220);
-      this.createOscillator('triangle', 660, now, 0.20, this.sfxGain, 330);
+      // 吸附感：频率缓慢上升 + 立体声快速交替
+      const s = this.audioContext.createOscillator();
+      s.type = 'sine';
+      s.frequency.setValueAtTime(440, now);
+      s.frequency.linearRampToValueAtTime(880, now + 0.25);
+      const tri = this.audioContext.createOscillator();
+      tri.type = 'triangle';
+      tri.frequency.setValueAtTime(660, now);
+      tri.frequency.linearRampToValueAtTime(1320, now + 0.25);
+      const pan = this.audioContext.createStereoPanner();
+      const lfo = this.audioContext.createOscillator();
+      lfo.type = 'square'; lfo.frequency.value = 12;
+      const lfoGain = this.audioContext.createGain(); lfoGain.gain.value = 0.7;
+      lfo.connect(lfoGain); lfoGain.connect(pan.pan);
+      const env = this.audioContext.createGain();
+      env.gain.setValueAtTime(0, now);
+      env.gain.linearRampToValueAtTime(0.2, now + 0.03);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      s.connect(pan); tri.connect(pan); pan.connect(env); env.connect(this.sfxGain);
+      s.start(now); s.stop(now + 0.27);
+      tri.start(now); tri.stop(now + 0.27);
+      lfo.start(now); lfo.stop(now + 0.27);
     } else if (type === 'boost') {
+      // 推背感：sawtooth 扫频 + sub sine + 噪声 highpass + 失真
       const osc = this.audioContext.createOscillator();
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(200, now);
       osc.frequency.exponentialRampToValueAtTime(1600, now + 0.4);
-      const envelope = this.audioContext.createGain();
-      envelope.gain.setValueAtTime(0, now);
-      envelope.gain.linearRampToValueAtTime(0.3, now + 0.05);
-      envelope.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-      osc.connect(envelope);
-      envelope.connect(this.sfxGain);
-      osc.start(now);
-      osc.stop(now + 0.4);
+      const sub = this.audioContext.createOscillator();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(60, now);
+      sub.frequency.exponentialRampToValueAtTime(120, now + 0.4);
+      const dist = this._createDistortion(35);
+      const env = this.audioContext.createGain();
+      env.gain.setValueAtTime(0, now);
+      env.gain.linearRampToValueAtTime(0.25, now + 0.05);
+      env.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      osc.connect(dist); sub.connect(dist); dist.connect(env); env.connect(this.sfxGain);
+      osc.start(now); osc.stop(now + 0.42);
+      sub.start(now); sub.stop(now + 0.42);
+      const noise = this.audioContext.createBufferSource();
+      noise.buffer = this._noiseBuffer(0.4);
+      const hp = this.audioContext.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.setValueAtTime(1000, now);
+      hp.frequency.exponentialRampToValueAtTime(6000, now + 0.4);
+      const ng = this.audioContext.createGain();
+      ng.gain.setValueAtTime(0, now);
+      ng.gain.linearRampToValueAtTime(0.1, now + 0.1);
+      ng.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      noise.connect(hp); hp.connect(ng); ng.connect(this.sfxGain);
+      noise.start(now); noise.stop(now + 0.42);
     }
   }
 
   playAchievement() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
+    // 辉煌感：3 osc 叠加（saw+triangle+sine）+ 慢攻击 + 长尾
     const chord = [523.25, 659.25, 783.99, 987.77, 1046.50];
-    chord.forEach((freq, i) => {
-      this.createOscillator('triangle', freq, now + i * 0.06, 0.45, this.sfxGain);
+    chord.forEach((f, i) => {
+      const t = now + i * 0.06;
+      const saw = this.audioContext.createOscillator(); saw.type = 'sawtooth'; saw.frequency.value = f;
+      const tri = this.audioContext.createOscillator(); tri.type = 'triangle'; tri.frequency.value = f;
+      const sine = this.audioContext.createOscillator(); sine.type = 'sine'; sine.frequency.value = f * 2;
+      const env = this.audioContext.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.12, t + 0.08);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+      saw.connect(env); tri.connect(env); sine.connect(env); env.connect(this.sfxGain);
+      saw.start(t); saw.stop(t + 0.62);
+      tri.start(t); tri.stop(t + 0.62);
+      sine.start(t); sine.stop(t + 0.62);
     });
   }
 
   playGameOver() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
-    const frequencies = [440, 392, 349, 311, 261, 220, 196, 146];
-    frequencies.forEach((freq, i) => {
-      this.createOscillator('sine', freq, now + i * 0.12, 0.25, this.sfxGain);
+    // 绝望感：下行音 + sub sine 持续 + 噪声 lowpass 渐弱 + 失真
+    const freqs = [440, 392, 349, 311, 261, 220, 196, 146];
+    freqs.forEach((f, i) => {
+      const t = now + i * 0.12;
+      const s = this.audioContext.createOscillator();
+      s.type = 'sine'; s.frequency.value = f;
+      const env = this.audioContext.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.2, t + 0.02);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      s.connect(env); env.connect(this.sfxGain);
+      s.start(t); s.stop(t + 0.27);
     });
-    this.createOscillator('square', 110, now + 0.9, 0.5, this.sfxGain, 55);
+    const sub = this.audioContext.createOscillator();
+    sub.type = 'sine'; sub.frequency.value = 60;
+    const subEnv = this.audioContext.createGain();
+    subEnv.gain.setValueAtTime(0, now);
+    subEnv.gain.linearRampToValueAtTime(0.25, now + 0.1);
+    subEnv.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+    const dist = this._createDistortion(40);
+    sub.connect(dist); dist.connect(subEnv); subEnv.connect(this.sfxGain);
+    sub.start(now); sub.stop(now + 1.22);
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = this._noiseBuffer(1.0);
+    const lp = this.audioContext.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 400;
+    const ng = this.audioContext.createGain();
+    ng.gain.setValueAtTime(0.15, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+    noise.connect(lp); lp.connect(ng); ng.connect(this.sfxGain);
+    noise.start(now); noise.stop(now + 1.02);
   }
 
   playCombo(comboCount) {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
     const pitchShift = Math.min(10, comboCount) * 40;
-    this.createOscillator('sine', 400 + pitchShift, now, 0.1, this.sfxGain);
-    this.createOscillator('triangle', 600 + pitchShift, now, 0.08, this.sfxGain);
+    const base = 400 + pitchShift;
+    // 递进感：主音 + 五度泛音
+    const s = this.audioContext.createOscillator();
+    s.type = 'sine'; s.frequency.value = base;
+    const fifth = this.audioContext.createOscillator();
+    fifth.type = 'sine'; fifth.frequency.value = base * 1.5;
+    const tri = this.audioContext.createOscillator();
+    tri.type = 'triangle'; tri.frequency.value = base * 1.5;
+    const env = this.audioContext.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.22, now + 0.01);
+    env.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    const fifthEnv = this.audioContext.createGain();
+    fifthEnv.gain.setValueAtTime(0, now);
+    fifthEnv.gain.linearRampToValueAtTime(0.1, now + 0.01);
+    fifthEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    s.connect(env); env.connect(this.sfxGain);
+    fifth.connect(fifthEnv); tri.connect(fifthEnv); fifthEnv.connect(this.sfxGain);
+    s.start(now); s.stop(now + 0.11);
+    fifth.start(now); fifth.stop(now + 0.09);
+    tri.start(now); tri.stop(now + 0.09);
   }
 
   playPause() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
-    this.createOscillator('sine', 300, now, 0.15, this.sfxGain, 150);
+    // 下沉感：sine + sub sine 100→50
+    const s = this.audioContext.createOscillator();
+    s.type = 'sine';
+    s.frequency.setValueAtTime(300, now);
+    s.frequency.exponentialRampToValueAtTime(150, now + 0.15);
+    const sub = this.audioContext.createOscillator();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(100, now);
+    sub.frequency.exponentialRampToValueAtTime(50, now + 0.15);
+    const env = this.audioContext.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.2, now + 0.01);
+    env.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    s.connect(env); sub.connect(env); env.connect(this.sfxGain);
+    s.start(now); s.stop(now + 0.16);
+    sub.start(now); sub.stop(now + 0.16);
   }
 
   playResume() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
-    this.createOscillator('sine', 150, now, 0.15, this.sfxGain, 300);
+    // 上升感：sine + sub sine 50→100
+    const s = this.audioContext.createOscillator();
+    s.type = 'sine';
+    s.frequency.setValueAtTime(150, now);
+    s.frequency.exponentialRampToValueAtTime(300, now + 0.15);
+    const sub = this.audioContext.createOscillator();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(50, now);
+    sub.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+    const env = this.audioContext.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.2, now + 0.01);
+    env.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    s.connect(env); sub.connect(env); env.connect(this.sfxGain);
+    s.start(now); s.stop(now + 0.16);
+    sub.start(now); sub.stop(now + 0.16);
   }
 
   playClick() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
-    this.createOscillator('sine', 800, now, 0.05, this.sfxGain, 400);
+    // sci-fi click：square 1200→600 + 噪声 highpass 短促
+    const osc = this.audioContext.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1200, now);
+    osc.frequency.exponentialRampToValueAtTime(600, now + 0.05);
+    const env = this.audioContext.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.12, now + 0.005);
+    env.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    osc.connect(env); env.connect(this.sfxGain);
+    osc.start(now); osc.stop(now + 0.06);
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = this._noiseBuffer(0.03);
+    const hp = this.audioContext.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 4000;
+    const ng = this.audioContext.createGain();
+    ng.gain.setValueAtTime(0.08, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+    noise.connect(hp); hp.connect(ng); ng.connect(this.sfxGain);
+    noise.start(now); noise.stop(now + 0.04);
   }
 
   playGameStart() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
+    // 启程感：5 音 + sub sine 持续 + 高音 sine
     const chord = [261.63, 329.63, 392.00, 523.25, 659.25];
-    chord.forEach((freq, i) => {
-      this.createOscillator('triangle', freq, now + i * 0.07, 0.35, this.sfxGain);
+    chord.forEach((f, i) => {
+      const t = now + i * 0.07;
+      const tri = this.audioContext.createOscillator(); tri.type = 'triangle'; tri.frequency.value = f;
+      const env = this.audioContext.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.2, t + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      tri.connect(env); env.connect(this.sfxGain);
+      tri.start(t); tri.stop(t + 0.37);
     });
-    this.createOscillator('sine', 1046.50, now + chord.length * 0.07, 0.45, this.sfxGain);
+    const sub = this.audioContext.createOscillator();
+    sub.type = 'sine'; sub.frequency.value = 80;
+    const subEnv = this.audioContext.createGain();
+    subEnv.gain.setValueAtTime(0, now);
+    subEnv.gain.linearRampToValueAtTime(0.18, now + 0.1);
+    subEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    sub.connect(subEnv); subEnv.connect(this.sfxGain);
+    sub.start(now); sub.stop(now + 0.52);
+    const high = this.audioContext.createOscillator();
+    high.type = 'sine'; high.frequency.value = 1046.50;
+    const highEnv = this.audioContext.createGain();
+    const ht = now + chord.length * 0.07;
+    highEnv.gain.setValueAtTime(0, ht);
+    highEnv.gain.linearRampToValueAtTime(0.15, ht + 0.02);
+    highEnv.gain.exponentialRampToValueAtTime(0.001, ht + 0.45);
+    high.connect(highEnv); highEnv.connect(this.sfxGain);
+    high.start(ht); high.stop(ht + 0.47);
   }
 
   playHover() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
-    const osc = this.audioContext.createOscillator();
-    const gain = this.audioContext.createGain();
-    osc.connect(gain);
-    gain.connect(this.sfxGain);
-    osc.frequency.setValueAtTime(600, now);
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.04, now + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-    osc.start(now);
-    osc.stop(now + 0.06);
+    // 微妙 shimmer：sine + 高八度 sine 极低 gain
+    const s = this.audioContext.createOscillator();
+    s.type = 'sine'; s.frequency.value = 600;
+    const high = this.audioContext.createOscillator();
+    high.type = 'sine'; high.frequency.value = 1200;
+    const env = this.audioContext.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.04, now + 0.01);
+    env.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+    const highEnv = this.audioContext.createGain();
+    highEnv.gain.setValueAtTime(0, now);
+    highEnv.gain.linearRampToValueAtTime(0.015, now + 0.01);
+    highEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+    s.connect(env); env.connect(this.sfxGain);
+    high.connect(highEnv); highEnv.connect(this.sfxGain);
+    s.start(now); s.stop(now + 0.07);
+    high.start(now); high.stop(now + 0.07);
   }
 
-  createNoise(duration, volume, output) {
-    const bufferSize = this.audioContext.sampleRate * duration;
-    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
-    }
-    const noise = this.audioContext.createBufferSource();
-    noise.buffer = buffer;
-    
-    const noiseGain = this.audioContext.createGain();
-    noiseGain.gain.setValueAtTime(volume, this.audioContext.currentTime);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
-    
-    const noiseFilter = this.audioContext.createBiquadFilter();
-    noiseFilter.type = 'lowpass';
-    noiseFilter.frequency.value = 800;
-    
-    noise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(output);
-    noise.start();
+  // ===== 获取当前区域+情绪的 preset =====
+  _getCurrentPreset() {
+    const zoneKey = this.isMenuMusic ? 'menu' : `zone${this.currentZone}`;
+    const zoneData = MUSIC_PRESETS[zoneKey] || MUSIC_PRESETS.zone1;
+    return zoneData[this.currentMood] || zoneData.cruise || zoneData.ambient || Object.values(zoneData)[0];
   }
 
+  // ===== 启动游戏配乐（lookahead 调度器） =====
   startMusic() {
     if (!this.musicEnabled || !this.initialized) return;
     this.stopMusic();
-    
-    const bpm = this.currentBPM;
-    const step = 60 / bpm / 2;
-    
-    const scheduleAhead = () => {
-      if (!this.musicEnabled || !this.initialized) return;
-      const playTime = this.audioContext.currentTime + 0.05;
-      
-      const intenseBass = [55, 65.4, 110, 55, 49, 58.3, 98, 49, 43.6, 51.9, 87.2, 43.6, 41.2, 49, 82.4, 82.4];
-      const calmBass = [55, 55, 110, 55, 49, 49, 98, 49, 43.6, 43.6, 87.2, 43.6, 41.2, 41.2, 82.4, 82.4];
-      const calmMelody = [220, 261.63, 329.63, 392.00, 440, 523.25, 659.25, 783.99, 880, 783.99, 659.25, 523.25, 440, 392.00, 329.63, 261.63];
-      const intenseMelody = [440, 523.25, 659.25, 783.99, 880, 1046.50, 880, 783.99, 659.25, 783.99, 880, 1046.50, 880, 783.99, 659.25, 523.25];
-      const bassFreqs = bpm > 140 ? intenseBass : calmBass;
-      const melodyPattern = bpm > 130 ? intenseMelody : calmMelody;
-
-      for (let i = 0; i < 16; i++) {
-        const time = playTime + i * step;
-        if (i % 4 === 0) this.playSynthKick(time);
-        if (i % 4 === 2) this.playSynthHat(time);
-        const freq = bassFreqs[i % 16];
-        this.playSynthBass(freq, time, step * 0.95);
-        if (i % 2 === 0) {
-          const leadFreq = melodyPattern[(i + Math.floor(this.audioContext.currentTime / 4) * 2) % melodyPattern.length];
-          this.playSynthLead(leadFreq, time, step * 0.8);
-        }
-      }
-    };
-    
-    scheduleAhead();
-    this.musicInterval = setInterval(() => {
-      scheduleAhead();
-    }, step * 16 * 1000);
+    this.isMenuMusic = false;
+    this.currentMood = 'cruise';
+    this.moodIntensity = { ambient: 0, cruise: 1, intense: 0 };
+    this.targetMoodIntensity = { ambient: 0, cruise: 1, intense: 0 };
+    this.stepIndex = 0;
+    this.barCount = 0;
+    this.nextStepTime = this.audioContext.currentTime + 0.05;
+    this._updateLayerGains();
+    this._scheduleLoop();
   }
 
+  // ===== lookahead 调度循环 =====
+  _scheduleLoop() {
+    if (!this.musicEnabled || !this.initialized) return;
+    const preset = this._getCurrentPreset();
+    if (!preset) return;
+    const bpm = preset.bpm || 110;
+    const stepDur = 60 / bpm / 2; // 8 分音符
+    const lookahead = 0.12;
+
+    while (this.nextStepTime < this.audioContext.currentTime + lookahead) {
+      this._scheduleStep(this.stepIndex, this.nextStepTime, preset, stepDur);
+      this.stepIndex = (this.stepIndex + 1) % 16;
+      if (this.stepIndex === 0) {
+        this.barCount++;
+        // 每 2 小节平滑更新情绪权重
+        if (this.barCount % 2 === 0) this._smoothMood();
+      }
+      this.nextStepTime += stepDur;
+    }
+
+    this.musicLookaheadTimer = setTimeout(() => this._scheduleLoop(), 25);
+  }
+
+  // ===== 调度单步：触发所有声部 =====
+  _scheduleStep(i, time, preset, stepDur) {
+    // 平滑插值情绪权重
+    this._interpolateMood();
+
+    // 鼓组活跃度判定
+    const drums = preset.drums || 'none';
+    const drumWeight = this._drumWeight(drums);
+
+    // Kick：每 4 步一次（强拍）
+    if (i % 4 === 0 && drumWeight > 0) {
+      this._playKick(time, 0.6 * drumWeight);
+    }
+    // Hat：每 4 步偏移 2（弱拍）
+    if (i % 4 === 2 && drumWeight > 0.3) {
+      this._playHat(time, 'closed', 0.3 * drumWeight);
+    }
+    // 打击乐 perc：每 8 步
+    if (i % 8 === 4 && drumWeight > 0.6) {
+      this._playPerc(time, 0.25 * drumWeight);
+    }
+
+    // Bass
+    const bassFreq = preset.bass ? preset.bass[i] : null;
+    if (bassFreq) {
+      this._playBass(bassFreq, time, stepDur * 0.95, preset.bassType || 'sawtooth');
+    }
+
+    // Lead（仅 cruise/intense 层有权重时播放）
+    const leadWeight = this.moodIntensity.cruise + this.moodIntensity.intense;
+    const leadFreq = preset.lead ? preset.lead[i] : null;
+    if (leadFreq && leadWeight > 0.05) {
+      this._playLead(leadFreq, time, stepDur * 0.8, preset.leadType || 'triangle', leadWeight);
+    }
+
+    // Arp（全情绪层都有，ambient 更轻）
+    const arpFreq = preset.arp ? preset.arp[i] : null;
+    if (arpFreq) {
+      const arpWeight = this.moodIntensity.ambient * 0.5 + this.moodIntensity.cruise * 0.6 + this.moodIntensity.intense * 0.8;
+      if (arpWeight > 0.05) this._playArp(arpFreq, time, stepDur * 0.5, arpWeight);
+    }
+
+    // Pad：每 4 步触发一次和弦长音
+    if (i % 4 === 0 && preset.pad) {
+      const chordIdx = (i / 4) % preset.pad.length;
+      const chord = preset.pad[chordIdx];
+      if (chord) {
+        const padWeight = this.moodIntensity.ambient * 0.7 + this.moodIntensity.cruise * 0.4 + this.moodIntensity.intense * 0.3;
+        this._playPad(chord, time, stepDur * 4, padWeight);
+      }
+    }
+  }
+
+  // ===== 鼓组活跃度→权重映射 =====
+  _drumWeight(drums) {
+    switch (drums) {
+      case 'none': return 0;
+      case 'soft': return 0.4;
+      case 'mid': return 0.7;
+      case 'full': return 1.0;
+      default: return 0.5;
+    }
+  }
+
+  // ===== 情绪平滑插值（每步调用） =====
+  _interpolateMood() {
+    const speed = 0.06;
+    ['ambient', 'cruise', 'intense'].forEach(k => {
+      const diff = this.targetMoodIntensity[k] - this.moodIntensity[k];
+      this.moodIntensity[k] += diff * speed;
+    });
+    // 更新层增益
+    this._updateLayerGains();
+  }
+
+  // ===== 每 2 小节重新计算目标情绪权重 =====
+  _smoothMood() {
+    // 根据 currentMood 设定目标权重（允许交叉淡化）
+    if (this.currentMood === 'ambient') {
+      this.targetMoodIntensity = { ambient: 1, cruise: 0, intense: 0 };
+    } else if (this.currentMood === 'cruise') {
+      this.targetMoodIntensity = { ambient: 0.3, cruise: 1, intense: 0 };
+    } else {
+      this.targetMoodIntensity = { ambient: 0, cruise: 0.4, intense: 1 };
+    }
+  }
+
+  // ===== 更新层增益节点 =====
+  _updateLayerGains() {
+    if (!this.layerGains.kick) return;
+    const drums = this._getCurrentPreset().drums || 'none';
+    const dw = this._drumWeight(drums);
+    const now = this.audioContext.currentTime;
+    const ramp = 0.3;
+    // kick/hat/perc 跟随 drumWeight
+    this.layerGains.kick.gain.setTargetAtTime(0.7 * dw, now, ramp);
+    this.layerGains.hat.gain.setTargetAtTime(0.35 * dw, now, ramp);
+    this.layerGains.perc.gain.setTargetAtTime(0.28 * dw, now, ramp);
+    // bass 跟随 cruise+intense
+    const bassW = this.moodIntensity.cruise + this.moodIntensity.intense;
+    this.layerGains.bass.gain.setTargetAtTime(0.5 * bassW + 0.15 * this.moodIntensity.ambient, now, ramp);
+    // lead 仅 cruise+intense
+    const leadW = this.moodIntensity.cruise * 0.7 + this.moodIntensity.intense * 0.85;
+    this.layerGains.lead.gain.setTargetAtTime(leadW, now, ramp);
+    // pad 全层
+    const padW = this.moodIntensity.ambient * 0.85 + this.moodIntensity.cruise * 0.45 + this.moodIntensity.intense * 0.3;
+    this.layerGains.pad.gain.setTargetAtTime(padW, now, ramp);
+    // arp 全层
+    const arpW = this.moodIntensity.ambient * 0.45 + this.moodIntensity.cruise * 0.55 + this.moodIntensity.intense * 0.7;
+    this.layerGains.arp.gain.setTargetAtTime(arpW, now, ramp);
+  }
+
+  // ===== 区域切换：平滑切换 preset =====
+  setZone(zoneNum) {
+    if (!this.initialized || this.isMenuMusic) return;
+    if (this.currentZone === zoneNum) return;
+    this.currentZone = Math.min(5, Math.max(1, zoneNum));
+    // 不立即重启调度器，下一小节自然切换 preset（因为 _scheduleStep 每步读取 _getCurrentPreset）
+    // 更新层增益
+    this._updateLayerGains();
+  }
+
+  // ===== 速度→情绪判定 =====
+  setMood(speed) {
+    if (!this.initialized || this.isMenuMusic) return;
+    let newMood;
+    if (speed < MOOD_THRESHOLDS.ambientMax) newMood = 'ambient';
+    else if (speed < MOOD_THRESHOLDS.cruiseMax) newMood = 'cruise';
+    else newMood = 'intense';
+    if (newMood !== this.currentMood) {
+      this.currentMood = newMood;
+      this._smoothMood();
+    }
+  }
+
+  // ===== 菜单配乐 =====
+  startMenuMusic() {
+    if (!this.musicEnabled || !this.initialized) return;
+    this.stopMusic();
+    this.isMenuMusic = true;
+    this.currentMood = 'ambient';
+    this.moodIntensity = { ambient: 1, cruise: 0, intense: 0 };
+    this.targetMoodIntensity = { ambient: 1, cruise: 0, intense: 0 };
+    this.stepIndex = 0;
+    this.barCount = 0;
+    this.nextStepTime = this.audioContext.currentTime + 0.05;
+    this._updateLayerGains();
+    this._scheduleLoop();
+  }
+
+  stopMenuMusic() {
+    if (!this.isMenuMusic) return;
+    this.isMenuMusic = false;
+    this.stopMusic();
+  }
+
+  // ===== 停止配乐 =====
   stopMusic() {
+    if (this.musicLookaheadTimer) {
+      clearTimeout(this.musicLookaheadTimer);
+      this.musicLookaheadTimer = null;
+    }
     if (this.musicInterval) {
       clearInterval(this.musicInterval);
       this.musicInterval = null;
@@ -1024,190 +2210,484 @@ class AudioManager {
     };
   }
 
-  playSynthKick(time) {
+  // ===== Kick：sine + click 层 + 失真 + 立体声 =====
+  _playKick(time, vel = 0.6) {
     if (!this.initialized) return;
+    const layerGain = this.layerGains.kick || this.musicGain;
+    // 主体 sine 频率衰减
     const osc = this.audioContext.createOscillator();
     const gain = this.audioContext.createGain();
-    osc.connect(gain);
-    gain.connect(this.musicGain);
     osc.frequency.setValueAtTime(140, time);
-    osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.14);
-    gain.gain.setValueAtTime(0.7, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
+    osc.frequency.exponentialRampToValueAtTime(45, time + 0.12);
+    gain.gain.setValueAtTime(vel * 0.8, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
+    osc.connect(gain);
+    gain.connect(layerGain);
     osc.start(time);
-    osc.stop(time + 0.15);
+    osc.stop(time + 0.2);
     this.trackMusicNode(osc);
+    // Click 层：短噪声增加冲击
+    const clickBuf = this.audioContext.createBuffer(1, this.audioContext.sampleRate * 0.01, this.audioContext.sampleRate);
+    const cd = clickBuf.getChannelData(0);
+    for (let i = 0; i < cd.length; i++) cd[i] = Math.random() * 2 - 1;
+    const click = this.audioContext.createBufferSource();
+    click.buffer = clickBuf;
+    const clickGain = this.audioContext.createGain();
+    clickGain.gain.setValueAtTime(vel * 0.15, time);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, time + 0.01);
+    const clickFilter = this.audioContext.createBiquadFilter();
+    clickFilter.type = 'highpass';
+    clickFilter.frequency.value = 3000;
+    click.connect(clickFilter);
+    clickFilter.connect(clickGain);
+    clickGain.connect(layerGain);
+    click.start(time);
+    click.stop(time + 0.02);
+    this.trackMusicNode(click);
   }
 
-  playSynthHat(time) {
+  // ===== Hat：噪声 + highpass + 滤波包络 =====
+  _playHat(time, variant = 'closed', vel = 0.2) {
     if (!this.initialized) return;
-    const bufferSize = this.audioContext.sampleRate * 0.04;
-    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-    const source = this.audioContext.createBufferSource();
-    source.buffer = buffer;
+    const layerGain = this.layerGains.hat || this.musicGain;
+    const dur = variant === 'open' ? 0.12 : 0.04;
+    const bufSize = Math.floor(this.audioContext.sampleRate * dur);
+    const buf = this.audioContext.createBuffer(1, bufSize, this.audioContext.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+    const src = this.audioContext.createBufferSource();
+    src.buffer = buf;
     const filter = this.audioContext.createBiquadFilter();
     filter.type = 'highpass';
-    filter.frequency.value = 8000;
+    filter.frequency.value = variant === 'rim' ? 6000 : 8500;
     const gain = this.audioContext.createGain();
-    gain.gain.setValueAtTime(0.08, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
-    source.connect(filter);
+    gain.gain.setValueAtTime(vel, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+    // 立体声微偏
+    const pan = this._createPan((Math.random() - 0.5) * 0.4);
+    src.connect(filter);
     filter.connect(gain);
-    gain.connect(this.musicGain);
-    source.start(time);
-    source.stop(time + 0.04);
-    this.trackMusicNode(source);
+    gain.connect(pan);
+    pan.connect(layerGain);
+    src.start(time);
+    src.stop(time + dur);
+    this.trackMusicNode(src);
   }
 
-  playSynthBass(frequency, time, duration) {
+  // ===== Perc：snare/clave 风格打击乐 =====
+  _playPerc(time, vel = 0.2) {
     if (!this.initialized) return;
-    const osc = this.audioContext.createOscillator();
-    const gain = this.audioContext.createGain();
+    const layerGain = this.layerGains.perc || this.musicGain;
+    // 短噪声 + bandpass 模拟 snare
+    const bufSize = Math.floor(this.audioContext.sampleRate * 0.08);
+    const buf = this.audioContext.createBuffer(1, bufSize, this.audioContext.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+    const src = this.audioContext.createBufferSource();
+    src.buffer = buf;
     const filter = this.audioContext.createBiquadFilter();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(frequency, time);
+    filter.type = 'bandpass';
+    filter.frequency.value = 2000;
+    filter.Q.value = 1.5;
+    const gain = this.audioContext.createGain();
+    gain.gain.setValueAtTime(vel, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(layerGain);
+    src.start(time);
+    src.stop(time + 0.1);
+    this.trackMusicNode(src);
+  }
+
+  // ===== Bass：双 osc（saw+sine 下八度）+ 包络滤波 =====
+  _playBass(freq, time, duration, type = 'sawtooth') {
+    if (!this.initialized) return;
+    const layerGain = this.layerGains.bass || this.musicGain;
+    // 主 osc
+    const osc1 = this.audioContext.createOscillator();
+    osc1.type = type;
+    osc1.frequency.setValueAtTime(freq, time);
+    // 下八度 sine 增加低频厚度
+    const osc2 = this.audioContext.createOscillator();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(freq / 2, time);
+    const filter = this.audioContext.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(220, time);
-    filter.frequency.exponentialRampToValueAtTime(60, time + duration);
-    gain.gain.setValueAtTime(0.22, time);
+    filter.frequency.setValueAtTime(300, time);
+    filter.frequency.exponentialRampToValueAtTime(80, time + duration);
+    filter.Q.value = 3;
+    const gain = this.audioContext.createGain();
+    gain.gain.setValueAtTime(0.001, time);
+    gain.gain.linearRampToValueAtTime(0.3, time + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gain);
+    gain.connect(layerGain);
+    osc1.start(time);
+    osc1.stop(time + duration);
+    osc2.start(time);
+    osc2.stop(time + duration);
+    this.trackMusicNode(osc1);
+    this.trackMusicNode(osc2);
+  }
+
+  // ===== Lead：triangle/saw/square + chorus + 滤波包络 + ping-pong delay =====
+  _playLead(freq, time, duration, type = 'triangle', vel = 1) {
+    if (!this.initialized) return;
+    const layerGain = this.layerGains.lead || this.musicGain;
+    const osc = this.audioContext.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, time);
+    // 滤波包络
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(freq * 4, time);
+    filter.frequency.exponentialRampToValueAtTime(freq * 1.5, time + duration);
+    filter.Q.value = 2;
+    const gain = this.audioContext.createGain();
+    gain.gain.setValueAtTime(0.001, time);
+    gain.gain.linearRampToValueAtTime(0.08 * vel, time + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+    // ping-pong delay
+    const delay = this.audioContext.createDelay();
+    delay.delayTime.value = duration * 0.5;
+    const delayGain = this.audioContext.createGain();
+    delayGain.gain.value = 0.25 * vel;
+    const panL = this._createPan(-0.5);
+    const panR = this._createPan(0.5);
     osc.connect(filter);
     filter.connect(gain);
-    gain.connect(this.musicGain);
-    osc.start(time);
-    osc.stop(time + duration);
-    this.trackMusicNode(osc);
-  }
-
-  playSynthLead(frequency, time, duration) {
-    if (!this.initialized) return;
-    const osc = this.audioContext.createOscillator();
-    const gain = this.audioContext.createGain();
-    const delay = this.audioContext.createDelay();
-    const delayGain = this.audioContext.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(frequency, time);
-    gain.gain.setValueAtTime(0.04, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
-    delay.delayTime.value = duration * 0.75;
-    delayGain.gain.value = 0.20;
-    osc.connect(gain);
-    gain.connect(this.musicGain);
+    gain.connect(layerGain);
     gain.connect(delay);
     delay.connect(delayGain);
-    delayGain.connect(this.musicGain);
+    delayGain.connect(panL);
+    delayGain.connect(panR);
+    panL.connect(layerGain);
+    panR.connect(layerGain);
     osc.start(time);
     osc.stop(time + duration);
     this.trackMusicNode(osc);
   }
 
+  // ===== Pad：3 osc 叠加 + 慢攻击 + 低通 + reverb =====
+  _playPad(chord, time, duration, vel = 0.5) {
+    if (!this.initialized || !chord) return;
+    const layerGain = this.layerGains.pad || this.musicGain;
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(800, time);
+    filter.frequency.linearRampToValueAtTime(1500, time + duration * 0.3);
+    filter.Q.value = 0.7;
+    const gain = this.audioContext.createGain();
+    gain.gain.setValueAtTime(0.001, time);
+    gain.gain.linearRampToValueAtTime(0.04 * vel, time + duration * 0.3);
+    gain.gain.setValueAtTime(0.04 * vel, time + duration * 0.6);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+    // 立体声宽化
+    const pan = this._createPan(0);
+    filter.connect(gain);
+    gain.connect(pan);
+    pan.connect(layerGain);
+    // 3 osc 叠加每个和弦音
+    chord.forEach((freq, idx) => {
+      const osc = this.audioContext.createOscillator();
+      osc.type = idx === 0 ? 'sawtooth' : (idx === 1 ? 'triangle' : 'sine');
+      osc.frequency.setValueAtTime(freq, time);
+      // 微 detune 增加宽度
+      osc.detune.value = (idx - 1) * 6;
+      osc.connect(filter);
+      osc.start(time);
+      osc.stop(time + duration);
+      this.trackMusicNode(osc);
+    });
+  }
+
+  // ===== Arp：square + 短延迟 + 立体声偏移 =====
+  _playArp(freq, time, duration, vel = 0.5) {
+    if (!this.initialized) return;
+    const layerGain = this.layerGains.arp || this.musicGain;
+    const osc = this.audioContext.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freq, time);
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = freq * 3;
+    filter.Q.value = 1;
+    const gain = this.audioContext.createGain();
+    gain.gain.setValueAtTime(0.001, time);
+    gain.gain.linearRampToValueAtTime(0.04 * vel, time + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+    // 立体声交替偏移
+    const pan = this._createPan((this.stepIndex % 2 === 0 ? -0.3 : 0.3));
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(pan);
+    pan.connect(layerGain);
+    osc.start(time);
+    osc.stop(time + duration);
+    this.trackMusicNode(osc);
+  }
+
+  // ===== 速度→情绪 + 动态滤波器（保留原接口） =====
   updateMusicBPM(speed) {
     if (!this.musicEnabled || !this.initialized) return;
-    const targetBPM = Math.min(170, Math.floor(100 + speed * 3.5));
-    if (Math.abs(targetBPM - this.currentBPM) > 5) {
-      this.currentBPM = targetBPM;
-      this.startMusic();
+    // 情绪判定
+    this.setMood(speed);
+    // 动态主低通：速度越高 cutoff 越低（隧道闷感）
+    if (this.masterFilter) {
+      const cutoff = Math.max(1500, 8000 - (speed - 9) * 400);
+      this.masterFilter.frequency.setTargetAtTime(cutoff, this.audioContext.currentTime, 0.5);
     }
   }
 
   playNearMiss() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
-    const bufferSize = this.audioContext.sampleRate * 0.15;
-    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-    const source = this.audioContext.createBufferSource();
-    source.buffer = buffer;
+    // 噪声 bandpass 扫频 + 立体声掠过
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = this._noiseBuffer(0.15);
     const filter = this.audioContext.createBiquadFilter();
     filter.type = 'bandpass';
     filter.frequency.setValueAtTime(400, now);
     filter.frequency.exponentialRampToValueAtTime(2000, now + 0.15);
     filter.Q.value = 2;
+    const pan = this.audioContext.createStereoPanner();
+    pan.pan.setValueAtTime(-0.8, now);
+    pan.pan.linearRampToValueAtTime(0.8, now + 0.15);
     const gain = this.audioContext.createGain();
     gain.gain.setValueAtTime(0.3, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-    source.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.sfxGain);
-    source.start(now);
-    source.stop(now + 0.15);
+    noise.connect(filter); filter.connect(pan); pan.connect(gain); gain.connect(this.sfxGain);
+    noise.start(now); noise.stop(now + 0.16);
+    // sub 层 sine 1200→1800 微弱
+    const sub = this.audioContext.createOscillator();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(1200, now);
+    sub.frequency.exponentialRampToValueAtTime(1800, now + 0.15);
+    const subGain = this.audioContext.createGain();
+    subGain.gain.setValueAtTime(0.08, now);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    sub.connect(subGain); subGain.connect(this.sfxGain);
+    sub.start(now); sub.stop(now + 0.16);
   }
 
   playEnergyWarning() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
-    this.createOscillator('sine', 440, now, 0.1, this.sfxGain);
-    this.createOscillator('sine', 440, now + 0.15, 0.1, this.sfxGain);
+    // 警报感：square 880 间断双击 + sub sine 220
+    const playBleep = (t) => {
+      const osc = this.audioContext.createOscillator();
+      osc.type = 'square'; osc.frequency.value = 880;
+      const env = this.audioContext.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.15, t + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      osc.connect(env); env.connect(this.sfxGain);
+      osc.start(t); osc.stop(t + 0.11);
+    };
+    playBleep(now);
+    playBleep(now + 0.15);
+    const sub = this.audioContext.createOscillator();
+    sub.type = 'sine'; sub.frequency.value = 220;
+    const subEnv = this.audioContext.createGain();
+    subEnv.gain.setValueAtTime(0.1, now);
+    subEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    sub.connect(subEnv); subEnv.connect(this.sfxGain);
+    sub.start(now); sub.stop(now + 0.26);
   }
 
   playZoneTransition() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
+    // 主体：triangle 6 音 + delay 链 + 立体声左右扩散
     const chord = [261.63, 329.63, 392.00, 523.25, 659.25, 1046.50];
     chord.forEach((freq, i) => {
+      const t = now + i * 0.08;
       const osc = this.audioContext.createOscillator();
       const gain = this.audioContext.createGain();
       const delay = this.audioContext.createDelay();
       const delayGain = this.audioContext.createGain();
+      const pan = this._createPan(i % 2 === 0 ? -0.4 : 0.4);
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now + i * 0.08);
-      gain.gain.setValueAtTime(0, now + i * 0.08);
-      gain.gain.linearRampToValueAtTime(0.2, now + i * 0.08 + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.5);
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.18, t + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
       delay.delayTime.value = 0.25;
       delayGain.gain.value = 0.15;
       osc.connect(gain);
-      gain.connect(this.sfxGain);
-      gain.connect(delay);
-      delay.connect(delayGain);
-      delayGain.connect(this.sfxGain);
-      osc.start(now + i * 0.08);
-      osc.stop(now + i * 0.08 + 0.6);
+      gain.connect(pan); pan.connect(this.sfxGain);
+      gain.connect(delay); delay.connect(delayGain); delayGain.connect(this.sfxGain);
+      osc.start(t); osc.stop(t + 0.6);
     });
+    // whoosh 层：噪声 bandpass 扫频
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = this._noiseBuffer(0.5);
+    const bp = this.audioContext.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(300, now);
+    bp.frequency.exponentialRampToValueAtTime(3000, now + 0.5);
+    bp.Q.value = 1;
+    const ng = this.audioContext.createGain();
+    ng.gain.setValueAtTime(0, now);
+    ng.gain.linearRampToValueAtTime(0.12, now + 0.1);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+    noise.connect(bp); bp.connect(ng); ng.connect(this.sfxGain);
+    noise.start(now); noise.stop(now + 0.52);
   }
 
   playCountdownTick() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
-    this.createOscillator('sine', 660, now, 0.12, this.sfxGain, 440);
+    // 电子 tick：square 880 短促 + 噪声 click
+    const osc = this.audioContext.createOscillator();
+    osc.type = 'square'; osc.frequency.value = 880;
+    const env = this.audioContext.createGain();
+    env.gain.setValueAtTime(0, now);
+    env.gain.linearRampToValueAtTime(0.12, now + 0.005);
+    env.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    osc.connect(env); env.connect(this.sfxGain);
+    osc.start(now); osc.stop(now + 0.09);
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = this._noiseBuffer(0.02);
+    const hp = this.audioContext.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 3000;
+    const ng = this.audioContext.createGain();
+    ng.gain.setValueAtTime(0.1, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+    noise.connect(hp); hp.connect(ng); ng.connect(this.sfxGain);
+    noise.start(now); noise.stop(now + 0.03);
   }
 
   playCountdownGo() {
     if (!this.sfxEnabled || !this.initialized) return;
     const now = this.audioContext.currentTime;
+    // 爆发感：4 音 + sub sine 持续 + 噪声 sweep
     [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
-      this.createOscillator('triangle', freq, now + i * 0.05, 0.3, this.sfxGain);
+      const t = now + i * 0.05;
+      const osc = this.audioContext.createOscillator();
+      osc.type = 'triangle'; osc.frequency.value = freq;
+      const env = this.audioContext.createGain();
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.2, t + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      osc.connect(env); env.connect(this.sfxGain);
+      osc.start(t); osc.stop(t + 0.32);
     });
+    const sub = this.audioContext.createOscillator();
+    sub.type = 'sine'; sub.frequency.value = 100;
+    const subEnv = this.audioContext.createGain();
+    subEnv.gain.setValueAtTime(0, now);
+    subEnv.gain.linearRampToValueAtTime(0.2, now + 0.05);
+    subEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    sub.connect(subEnv); subEnv.connect(this.sfxGain);
+    sub.start(now); sub.stop(now + 0.32);
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = this._noiseBuffer(0.3);
+    const hp = this.audioContext.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.setValueAtTime(500, now);
+    hp.frequency.exponentialRampToValueAtTime(5000, now + 0.3);
+    const ng = this.audioContext.createGain();
+    ng.gain.setValueAtTime(0, now);
+    ng.gain.linearRampToValueAtTime(0.1, now + 0.05);
+    ng.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    noise.connect(hp); hp.connect(ng); ng.connect(this.sfxGain);
+    noise.start(now); noise.stop(now + 0.32);
+  }
+
+  // ===== 工具：生成棕噪声 buffer（模拟自然风，低频能量集中） =====
+  _brownNoiseBuffer(duration) {
+    const sr = this.audioContext.sampleRate;
+    const len = Math.floor(sr * duration);
+    const buf = this.audioContext.createBuffer(1, len, sr);
+    const data = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      last += (Math.random() * 2 - 1) * 0.02;
+      if (last > 1.0) last = 1.0;
+      if (last < -1.0) last = -1.0;
+      data[i] = last;
+    }
+    return buf;
   }
 
   startWindSound() {
     if (!this.initialized || this.windSource) return;
-    const bufferSize = this.audioContext.sampleRate * 2;
-    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    // 棕噪声源（4秒循环，更自然的风声质感）
     this.windSource = this.audioContext.createBufferSource();
-    this.windSource.buffer = buffer;
+    this.windSource.buffer = this._brownNoiseBuffer(4);
     this.windSource.loop = true;
+
+    // 低频层：宽 bandpass 250Hz，低沉风吼
     this.windFilter = this.audioContext.createBiquadFilter();
     this.windFilter.type = 'bandpass';
-    this.windFilter.frequency.value = 400;
-    this.windFilter.Q.value = 0.5;
+    this.windFilter.frequency.value = 250;
+    this.windFilter.Q.value = 0.3; // 更宽，更自然
     this.windGain = this.audioContext.createGain();
     this.windGain.gain.value = 0;
+
+    // 高频层：窄 bandpass 2500Hz，模拟风啸
+    this.windHighFilter = this.audioContext.createBiquadFilter();
+    this.windHighFilter.type = 'bandpass';
+    this.windHighFilter.frequency.value = 2500;
+    this.windHighFilter.Q.value = 1.5;
+    this.windHighGain = this.audioContext.createGain();
+    this.windHighGain.gain.value = 0;
+
+    // 慢速增益 LFO（模拟阵风自然起伏）
+    this.windLFO = this.audioContext.createOscillator();
+    this.windLFO.type = 'sine'; this.windLFO.frequency.value = 0.3;
+    this.windLFOGain = this.audioContext.createGain();
+    this.windLFOGain.gain.value = 0;
+    this.windLFO.connect(this.windLFOGain);
+    this.windLFOGain.connect(this.windGain.gain);
+    this.windLFO.start();
+
+    // 立体声 pan
+    this.windPanner = this.audioContext.createStereoPanner();
+    this.windPanner.pan.value = 0;
+    this.windHighPanner = this.audioContext.createStereoPanner();
+    this.windHighPanner.pan.value = 0;
+
+    // 路由
     this.windSource.connect(this.windFilter);
     this.windFilter.connect(this.windGain);
-    this.windGain.connect(this.masterGain);
+    this.windGain.connect(this.windPanner);
+    this.windPanner.connect(this.masterGain);
+
+    this.windSource.connect(this.windHighFilter);
+    this.windHighFilter.connect(this.windHighGain);
+    this.windHighGain.connect(this.windHighPanner);
+    this.windHighPanner.connect(this.masterGain);
+
     this.windSource.start();
   }
 
   updateWindSound(speed) {
     if (!this.windGain || !this.windFilter) return;
-    this.windGain.gain.value = Math.min(0.15, Math.max(0, (speed - 9) * 0.008));
-    this.windFilter.frequency.value = 200 + speed * 30;
+    const now = this.audioContext.currentTime;
+    // 低频层：速度 9+ 开始有，线性增长
+    const lowGain = Math.min(0.22, Math.max(0, (speed - 9) * 0.012));
+    this.windGain.gain.setTargetAtTime(lowGain, now, 0.15);
+    // 低频层频率随速度微升（模拟风压变化）
+    this.windFilter.frequency.setTargetAtTime(180 + speed * 25, now, 0.15);
+    // 阵风 LFO 幅度：速度越高起伏越大
+    this.windLFOGain.gain.setTargetAtTime(Math.min(0.06, (speed - 9) * 0.004), now, 0.15);
+
+    // 高频层：速度 13+ 才出现，更晚更克制
+    const highGain = Math.min(0.06, Math.max(0, (speed - 14) * 0.005));
+    this.windHighGain.gain.setTargetAtTime(highGain, now, 0.15);
+    this.windHighFilter.frequency.setTargetAtTime(1800 + speed * 60, now, 0.15);
+
+    // 立体声微摇：速度越高摇摆幅度越大
+    const panAmount = Math.min(0.5, Math.max(0, (speed - 15) * 0.035));
+    const lowPan = Math.sin(now * 0.8) * panAmount * 0.6;
+    const highPan = Math.sin(now * 1.7 + 1.5) * panAmount;
+    this.windPanner.pan.setTargetAtTime(lowPan, now, 0.08);
+    this.windHighPanner.pan.setTargetAtTime(highPan, now, 0.08);
   }
 
   stopWindSound() {
@@ -1216,6 +2696,12 @@ class AudioManager {
       this.windSource = null;
       this.windGain = null;
       this.windFilter = null;
+      this.windHighFilter = null;
+      this.windHighGain = null;
+      this.windPanner = null;
+      this.windHighPanner = null;
+      if (this.windLFO) { try { this.windLFO.stop(); } catch(e) {} this.windLFO = null; }
+      this.windLFOGain = null;
     }
   }
 }
@@ -1622,7 +3108,7 @@ const R = 4;
 const SEG_LEN = 10;
 const NUM_SEGMENTS = 16;
 const PLAYER_Z = 3;
-const WALL_COLORS = [0x3ee6e0, 0x8b5cf6, 0xe63ee0, 0xf5a623];
+const WALL_COLORS = [0x00E5C7, 0x8b5cf6, 0xe63ee0, 0xf5a623];
 const OBSTACLE_COLOR = 0xff3b3b;
 
 const world = new THREE.Group();
@@ -1691,6 +3177,39 @@ function getDifficultyAt(distance) {
 
 let currentDifficulty = 'normal';
 
+// ============ 预设关卡片段系统 ============
+const PATTERNS = [
+  // 简单模式（距离 0-300m）
+  { walls: [0], minDist: 0, weight: 3 },
+  { walls: [1], minDist: 0, weight: 3 },
+  { walls: [2], minDist: 0, weight: 3 },
+  { walls: [3], minDist: 0, weight: 3 },
+  // 中等模式（距离 300-1500m）
+  { walls: [0, 2], minDist: 300, weight: 4 },
+  { walls: [1, 3], minDist: 300, weight: 4 },
+  { walls: [0, 1], minDist: 500, weight: 3 },
+  { walls: [2, 3], minDist: 500, weight: 3 },
+  { walls: [1, 2], minDist: 500, weight: 3 },
+  // 困难模式（距离 1500m+）
+  { walls: [0, 1, 2], minDist: 1500, weight: 2 },
+  { walls: [0, 2, 3], minDist: 1500, weight: 2 },
+  { walls: [0, 1, 3], minDist: 1500, weight: 2 },
+  { walls: [1, 2, 3], minDist: 1500, weight: 2 },
+  { walls: [0, 2], minDist: 2000, weight: 3, tightGap: true },
+  { walls: [1, 3], minDist: 2000, weight: 3, tightGap: true },
+  // 分支路径模式（距离 2000m+）
+  { walls: [0, 2], minDist: 2000, weight: 2, isBranch: true, branchSafe: [1, 3] },
+  { walls: [1, 3], minDist: 2000, weight: 2, isBranch: true, branchSafe: [0, 2] },
+];
+
+// ============ 种子随机系统 ============
+let currentSeed = null;
+let gameRng = Math.random;
+
+// ============ 动态难度系统 ============
+let recentEvents = [];
+let dynamicDifficultyMod = 1.0;
+
 // Wall shaders for dynamic grid lines
 const wallVertexShader = `
   varying vec2 vUv;
@@ -1734,9 +3253,9 @@ const wallMaterials = WALL_COLORS.map(c => new THREE.ShaderMaterial({
   }
 }));
 
-const t = 0.3;
+const WALL_THICKNESS = 0.3;
 const wallGeoDefs = [
-  [R*2, t, SEG_LEN], [t, R*2, SEG_LEN], [R*2, t, SEG_LEN], [t, R*2, SEG_LEN]
+  [R*2, WALL_THICKNESS, SEG_LEN], [WALL_THICKNESS, R*2, SEG_LEN], [R*2, WALL_THICKNESS, SEG_LEN], [WALL_THICKNESS, R*2, SEG_LEN]
 ];
 const wallGeometries = wallGeoDefs.map(s => new THREE.BoxGeometry(...s));
 const wallEdgesGeos = wallGeometries.map(g => new THREE.EdgesGeometry(g));
@@ -1746,17 +3265,18 @@ const wallPosDefs = [
   [0, -R, 0], [R, 0, 0], [0, R, 0], [-R, 0, 0]
 ];
 
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i=a.length-1;i>0;i--) {
-    const j = Math.floor(Math.random()*(i+1));
-    [a[i],a[j]] = [a[j],a[i]];
-  }
-  return a;
+// mulberry32 种子伪随机数生成器
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
 }
 
 // ============ 对象池与共享几何体 (Object Pooling) ============
-const obstacleGeometry = new THREE.BoxGeometry(1.15, 1.15, 1.15);
+const obstacleGeometry = new THREE.BoxGeometry(CONFIG.OBSTACLE_SIZE, CONFIG.OBSTACLE_SIZE, CONFIG.OBSTACLE_SIZE);
 const obstacleMaterial = new THREE.MeshStandardMaterial({
   color: OBSTACLE_COLOR,
   emissive: OBSTACLE_COLOR,
@@ -1767,8 +3287,8 @@ const obstacleMaterial = new THREE.MeshStandardMaterial({
 const laserGeometry = new THREE.CylinderGeometry(0.08, 0.08, 7.8, 8);
 laserGeometry.rotateZ(Math.PI / 2);
 const laserMaterial = new THREE.MeshStandardMaterial({
-  color: 0xff3b3b,
-  emissive: 0xff3b3b,
+  color: OBSTACLE_COLOR,
+  emissive: OBSTACLE_COLOR,
   emissiveIntensity: 1.5,
   roughness: 0.2
 });
@@ -1782,81 +3302,55 @@ const powerupGeometries = {
 };
 
 const powerupMaterials = {
-  energy: new THREE.MeshStandardMaterial({ color: 0x4ee6e0, emissive: 0x4ee6e0, emissiveIntensity: 0.5, roughness: 0.2 }),
-  invincible: new THREE.MeshStandardMaterial({ color: 0xe6a23e, emissive: 0xe6a23e, emissiveIntensity: 0.5, roughness: 0.2 }),
-  shield: new THREE.MeshStandardMaterial({ color: 0x3b82f6, emissive: 0x3b82f6, emissiveIntensity: 0.6, roughness: 0.1, transparent: true, opacity: 0.95 }),
-  magnet: new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.6, roughness: 0.3 }),
-  boost: new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x10b981, emissiveIntensity: 0.7, roughness: 0.2 })
+  energy:     new THREE.MeshStandardMaterial({ color: POWERUP_COLORS.energy,     emissive: POWERUP_COLORS.energy,     emissiveIntensity: 0.5, roughness: 0.2 }),
+  invincible: new THREE.MeshStandardMaterial({ color: POWERUP_COLORS.invincible, emissive: POWERUP_COLORS.invincible, emissiveIntensity: 0.5, roughness: 0.2 }),
+  shield:     new THREE.MeshStandardMaterial({ color: POWERUP_COLORS.shield,     emissive: POWERUP_COLORS.shield,     emissiveIntensity: 0.6, roughness: 0.1, transparent: true, opacity: 0.95 }),
+  magnet:     new THREE.MeshStandardMaterial({ color: POWERUP_COLORS.magnet,     emissive: POWERUP_COLORS.magnet,     emissiveIntensity: 0.6, roughness: 0.3 }),
+  boost:      new THREE.MeshStandardMaterial({ color: POWERUP_COLORS.boost,      emissive: POWERUP_COLORS.boost,      emissiveIntensity: 0.7, roughness: 0.2 })
 };
 
-const obstaclePool = [];
-const obstacleFreeList = [];
-const laserPool = [];
-const laserFreeList = [];
-const powerupPools = {
-  energy: [],
-  invincible: [],
-  shield: [],
-  magnet: [],
-  boost: []
-};
-const powerupFreeLists = {
-  energy: [],
-  invincible: [],
-  shield: [],
-  magnet: [],
-  boost: []
-};
-
-function getObstacleFromPool() {
-  let obs = obstacleFreeList.pop();
-  if (!obs) {
-    obs = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
-    obstaclePool.push(obs);
-  }
-  obs.visible = true;
-  return obs;
+// ============ 通用对象池工厂 ============
+function createPool(factory, onGet) {
+  const free = [];
+  return {
+    get() {
+      let item = free.pop();
+      if (!item) item = factory();
+      item.visible = true;
+      if (onGet) onGet(item);
+      return item;
+    },
+    return(item) {
+      if (item.parent) item.parent.remove(item);
+      item.visible = false;
+      free.push(item);
+    }
+  };
 }
 
-function returnObstacleToPool(obs) {
-  if (obs.parent) obs.parent.remove(obs);
-  obs.visible = false;
-  obstacleFreeList.push(obs);
-}
-
-function getLaserFromPool() {
-  let laser = laserFreeList.pop();
-  if (!laser) {
-    laser = new THREE.Mesh(laserGeometry, laserMaterial);
-    laserPool.push(laser);
-  }
-  laser.visible = true;
-  return laser;
-}
-
-function returnLaserToPool(laser) {
-  if (laser.parent) laser.parent.remove(laser);
-  laser.visible = false;
-  laserFreeList.push(laser);
-}
-
-function getPowerupFromPool(type) {
-  let pup = powerupFreeLists[type].pop();
-  if (!pup) {
-    pup = new THREE.Mesh(powerupGeometries[type], powerupMaterials[type]);
+const obstaclePool = createPool(
+  () => new THREE.Mesh(obstacleGeometry, obstacleMaterial),
+  (obs) => obs.scale.set(1, 1, 1)
+);
+const laserPool = createPool(
+  () => new THREE.Mesh(laserGeometry, laserMaterial),
+  (laser) => laser.scale.set(1, 1, 1)
+);
+const powerupPools = {};
+['energy', 'invincible', 'shield', 'magnet', 'boost'].forEach(type => {
+  powerupPools[type] = createPool(() => {
+    const pup = new THREE.Mesh(powerupGeometries[type], powerupMaterials[type]);
     pup.userData = { type };
-    powerupPools[type].push(pup);
-  }
-  pup.visible = true;
-  return pup;
-}
+    return pup;
+  });
+});
 
-function returnPowerupToPool(pup) {
-  const type = pup.userData.type;
-  if (pup.parent) pup.parent.remove(pup);
-  pup.visible = false;
-  powerupFreeLists[type].push(pup);
-}
+function getObstacleFromPool() { return obstaclePool.get(); }
+function returnObstacleToPool(obs) { obstaclePool.return(obs); }
+function getLaserFromPool() { return laserPool.get(); }
+function returnLaserToPool(laser) { laserPool.return(laser); }
+function getPowerupFromPool(type) { return powerupPools[type].get(); }
+function returnPowerupToPool(pup) { powerupPools[pup.userData.type].return(pup); }
 
 // ============ 段创建与生成 ============
 function createSegment(startZ) {
@@ -1888,13 +3382,33 @@ function spawnObstacles(seg, spawnDistance) {
 
   const settings = difficultySettings[currentDifficulty];
   const curve = getDifficultyAt(spawnDistance);
-  const maxWalls = Math.min(2, 1 + Math.floor(curve.maxWallsBase * settings.obstacleMultiplier));
-  const wallsToBlock = shuffle([0,1,2,3]).slice(0, maxWalls);
-  const size = 1.15;
+
+  // 按距离和动态难度过滤可用模式
+  const effectiveMaxWalls = Math.min(3, Math.floor(curve.maxWallsBase * settings.obstacleMultiplier * dynamicDifficultyMod) + 1);
+  let availablePatterns = PATTERNS.filter(p => spawnDistance >= p.minDist && p.walls.length <= effectiveMaxWalls);
+  if (availablePatterns.length === 0) availablePatterns = [{ walls: [0], weight: 1 }];
+  let totalWeight = availablePatterns.reduce((s, p) => s + p.weight, 0);
+  let roll = gameRng() * totalWeight;
+  let selectedPattern = availablePatterns[0];
+  for (const p of availablePatterns) {
+    roll -= p.weight;
+    if (roll <= 0) { selectedPattern = p; break; }
+  }
+  const wallsToBlock = selectedPattern.walls;
+  const size = CONFIG.OBSTACLE_SIZE;
+
+  // 分支路径标记
+  seg.userData.isBranch = false;
+  if (selectedPattern.isBranch) {
+    seg.userData.isBranch = true;
+    seg.userData.branchSafeState = selectedPattern.branchSafe[Math.floor(gameRng() * selectedPattern.branchSafe.length)];
+  }
 
   wallsToBlock.forEach(state => {
-    const localZ = (Math.random()-0.5) * SEG_LEN * 0.55;
-    const isLaser = Math.random() < curve.laserChance;
+    // tightGap模式：障碍物间距更紧密（0.35范围 vs 普通0.55范围）
+    const zRange = selectedPattern.tightGap ? 0.35 : 0.55;
+    const localZ = (gameRng()-0.5) * SEG_LEN * zRange;
+    const isLaser = gameRng() < curve.laserChance;
 
     let mesh;
     let type = 'box';
@@ -1917,12 +3431,12 @@ function spawnObstacles(seg, spawnDistance) {
       if (state===2) pos = [0, R-size/2, localZ];
       if (state===3) pos = [-R+size/2, 0, localZ];
       mesh.position.set(...pos);
-      mesh.rotation.set(0, Math.random()*Math.PI*0.25, 0);
+      mesh.rotation.set(0, gameRng()*Math.PI*0.25, 0);
     }
     seg.add(mesh);
     
-    const isMoving = !isLaser && (Math.random() < curve.movingChance * settings.obstacleMultiplier);
-    const rotationSpeed = !isLaser ? (0.5 + Math.random() * 1.5) : 0;
+    const isMoving = !isLaser && (gameRng() < curve.movingChance * settings.obstacleMultiplier);
+    const rotationSpeed = !isLaser ? (0.5 + gameRng() * 1.5) : 0;
 
     seg.userData.obstacles.push({
       mesh,
@@ -1931,9 +3445,15 @@ function spawnObstacles(seg, spawnDistance) {
       height: isLaser ? 0.2 : size,
       type,
       isMoving,
-      moveDirection: Math.random() < 0.5 ? 1 : -1,
-      moveSpeed: curve.moveSpeedMin + Math.random() * (curve.moveSpeedMax - curve.moveSpeedMin),
-      rotationSpeed
+      moveDirection: gameRng() < 0.5 ? 1 : -1,
+      moveSpeed: curve.moveSpeedMin + gameRng() * (curve.moveSpeedMax - curve.moveSpeedMin),
+      rotationSpeed,
+      armingTimer: isLaser ? 0.45 : 0,
+      armed: isLaser ? false : true,
+      zoneEffect: getZoneEffect(1 + Math.floor(spawnDistance / 500)),
+      blinkTimer: 0,
+      pulseTimer: 0,
+      swapTimer: 0
     });
   });
 }
@@ -1948,18 +3468,35 @@ function spawnPowerups(seg, spawnDistance) {
   const curve = getDifficultyAt(spawnDistance);
   const powerupChance = curve.powerupChance * settings.powerupMultiplier;
 
-  if (Math.random() < powerupChance) {
-    const state = Math.floor(Math.random() * 4);
-    const localZ = (Math.random()-0.5) * SEG_LEN * 0.55;
-    
-    const rand = Math.random();
+  if (gameRng() < powerupChance) {
+    const rand = gameRng();
     let type = 'energy';
     if (rand < 0.35) type = 'energy';
     else if (rand < 0.55) type = 'invincible';
     else if (rand < 0.75) type = 'shield';
     else if (rand < 0.90) type = 'magnet';
     else type = 'boost';
-    
+
+    const isHighValue = (type === 'invincible' || type === 'boost');
+    let state, localZ;
+
+    // 分支路径：在安全侧放高价值道具
+    if (seg.userData.isBranch && seg.userData.branchSafeState !== undefined) {
+      state = seg.userData.branchSafeState;
+      type = gameRng() < 0.6 ? 'boost' : 'invincible';
+      localZ = (gameRng()-0.5) * SEG_LEN * 0.4;
+      seg.userData.isBranch = false;
+    } else if (isHighValue && seg.userData.obstacles.length > 0) {
+      // 高价值道具：放在障碍物附近（紧贴后方，制造风险-收益选择）
+      const nearestObs = seg.userData.obstacles[0];
+      state = nearestObs.state;
+      localZ = nearestObs.localZ + 0.5 + gameRng() * 1.0;
+    } else {
+      // 低价值道具或无障碍段：保持随机位置
+      state = Math.floor(gameRng() * 4);
+      localZ = (gameRng()-0.5) * SEG_LEN * 0.55;
+    }
+
     const mesh = getPowerupFromPool(type);
     const size = 0.8;
     
@@ -2051,7 +3588,7 @@ const shieldMaterial = new THREE.ShaderMaterial({
   vertexShader: shieldVertexShader,
   fragmentShader: shieldFragmentShader,
   uniforms: {
-    color: { value: new THREE.Color(0x3b82f6) },
+    color: { value: new THREE.Color(COLORS.SHIELD) },
     time: { value: 0 }
   },
   transparent: true,
@@ -2068,10 +3605,10 @@ shieldBubble.visible = false;
 
 const magnetRing = new THREE.Mesh(
   new THREE.TorusGeometry(1.0, 0.08, 8, 24),
-  new THREE.MeshBasicMaterial({ 
-    color: 0xef4444, 
-    transparent: true, 
-    opacity: 0.4 
+  new THREE.MeshBasicMaterial({
+    color: COLORS.MAGNET,
+    transparent: true,
+    opacity: 0.4
   })
 );
 magnetRing.rotation.x = Math.PI / 2;
@@ -2125,21 +3662,21 @@ const skins = [
 ];
 let currentSkin = 'classic';
 let currentSkinObj = skins[0];
-let totalCredits = parseInt(localStorage.getItem('g_tunnel_credits') || '0');
+let totalCredits = parseInt(safeGetItem(CONFIG.STORAGE_KEYS.CREDITS, '0')) || 0;
 
 function loadSkins() {
-  const unlocked = JSON.parse(localStorage.getItem('g_tunnel_unlocked_skins') || '["classic"]');
+  const unlocked = safeParseJSON(CONFIG.STORAGE_KEYS.UNLOCKED_SKINS, ['classic']);
   skins.forEach(s => {
     if (unlocked.includes(s.id)) s.unlocked = true;
   });
-  currentSkin = localStorage.getItem('g_tunnel_current_skin') || 'classic';
+  currentSkin = safeGetItem(CONFIG.STORAGE_KEYS.CURRENT_SKIN, 'classic') || 'classic';
   currentSkinObj = skins.find(s => s.id === currentSkin) || skins[0];
 }
 
 function saveSkins() {
   const unlocked = skins.filter(s => s.unlocked).map(s => s.id);
-  localStorage.setItem('g_tunnel_unlocked_skins', JSON.stringify(unlocked));
-  localStorage.setItem('g_tunnel_current_skin', currentSkin);
+  safeSetItem(CONFIG.STORAGE_KEYS.UNLOCKED_SKINS, JSON.stringify(unlocked));
+  safeSetItem(CONFIG.STORAGE_KEYS.CURRENT_SKIN, currentSkin);
 }
 
 function applySkin(skinId) {
@@ -2177,10 +3714,10 @@ function renderSkinsUI() {
       if (skin.id === currentSkin) {
         btnHtml = `<div class="skin-btn equipped">使用中</div>`;
       } else {
-        btnHtml = `<div class="skin-btn equip" onclick="applySkin('${skin.id}')">装备</div>`;
+        btnHtml = `<div class="skin-btn equip" data-action="equip" data-skin-id="${skin.id}">装备</div>`;
       }
     } else {
-      btnHtml = `<div class="skin-btn buy" onclick="buySkin('${skin.id}')">${skin.cost} M</div>`;
+      btnHtml = `<div class="skin-btn buy" data-action="buy" data-skin-id="${skin.id}">${skin.cost} M</div>`;
     }
     
     card.innerHTML = `
@@ -2197,14 +3734,13 @@ function renderSkinsUI() {
   });
 }
 
-window.applySkin = applySkin;
-window.buySkin = function(skinId) {
+function buySkin(skinId) {
   const skin = skins.find(s => s.id === skinId);
   if (!skin || skin.unlocked) return;
-  
+
   if (totalCredits >= skin.cost) {
     totalCredits -= skin.cost;
-    localStorage.setItem('g_tunnel_credits', totalCredits);
+    safeSetItem(CONFIG.STORAGE_KEYS.CREDITS, totalCredits);
     skin.unlocked = true;
     saveSkins();
     applySkin(skinId);
@@ -2213,7 +3749,16 @@ window.buySkin = function(skinId) {
     audioManager.playCollision();
     alert('点数不足！请继续奔跑赚取点数。');
   }
-};
+}
+
+// 皮肤按钮事件委托（替代内联 onclick）
+document.getElementById('skinsGrid').addEventListener('click', (e) => {
+  const btn = e.target.closest('.skin-btn[data-action]');
+  if (!btn) return;
+  const skinId = btn.dataset.skinId;
+  if (btn.dataset.action === 'equip') applySkin(skinId);
+  else if (btn.dataset.action === 'buy') buySkin(skinId);
+});
 
 // ============ 游戏机制状态变量 ============
 let isJumping = false;
@@ -2231,7 +3776,7 @@ let energyRegenRate = 5;
 // 状态 Buffs
 let isInvincible = false;
 let invincibleTimer = 0;
-let invincibleDuration = 3.5;
+let invincibleDuration = CONFIG.POWERUP_DURATIONS.invincible;
 
 let shieldActive = false;
 let magnetActive = false;
@@ -2270,11 +3815,11 @@ let powerupBonusPoints = 0;
 let currentZone = 1;
 
 function loadAchievements() {
-  const saved = JSON.parse(localStorage.getItem('g_tunnel_achievements') || '{}');
+  const saved = safeParseJSON(CONFIG.STORAGE_KEYS.ACHIEVEMENTS, {});
   Object.keys(saved).forEach(key => {
     if (achievements[key]) achievements[key].unlocked = saved[key];
   });
-  cumulativePowerups = parseInt(localStorage.getItem('g_tunnel_cumulative_powerups') || '0');
+  cumulativePowerups = parseInt(safeGetItem(CONFIG.STORAGE_KEYS.CUMULATIVE_POWERUPS, '0')) || 0;
 }
 
 function saveAchievements() {
@@ -2282,8 +3827,8 @@ function saveAchievements() {
   Object.keys(achievements).forEach(key => {
     toSave[key] = achievements[key].unlocked;
   });
-  localStorage.setItem('g_tunnel_achievements', JSON.stringify(toSave));
-  localStorage.setItem('g_tunnel_cumulative_powerups', cumulativePowerups);
+  safeSetItem(CONFIG.STORAGE_KEYS.ACHIEVEMENTS, JSON.stringify(toSave));
+  safeSetItem(CONFIG.STORAGE_KEYS.CUMULATIVE_POWERUPS, cumulativePowerups);
 }
 
 function jump() {
@@ -2291,13 +3836,13 @@ function jump() {
     isJumping = true;
     velocityY = JUMP_POWER;
 
-    if (energy >= 2) {
-      energy -= 2;
+    if (energy >= CONFIG.JUMP_ENERGY_COST) {
+      energy -= CONFIG.JUMP_ENERGY_COST;
       updateEnergyBar();
     }
 
     audioManager.playJump();
-    if (navigator.vibrate) navigator.vibrate([20, 10, 20]);
+    if (navigator.vibrate) navigator.vibrate(HAPTIC_PATTERNS.jump);
 
     const pColor = new THREE.Color(currentSkinObj.color);
     particleSystem.emit(player.position, 15, pColor, 1.8);
@@ -2322,6 +3867,13 @@ function updateEnergyBar() {
   }
 }
 
+const COMBO_MILESTONES = [
+  { threshold: 10, title: 'COMBO MASTER', color: '#00E5C7', shake: 0.3 },
+  { threshold: 20, title: 'COMBO KING',   color: '#f97316', shake: 0.5 },
+  { threshold: 30, title: 'COMBO GOD',   color: '#eab308', shake: 0.8 },
+];
+let lastComboMilestone = 0;
+
 function showCombo() {
   const comboDisplay = document.getElementById('comboDisplay');
   if (combo > 1) {
@@ -2332,28 +3884,39 @@ function showCombo() {
       comboDisplay.style.transform = 'translateX(-50%) scale(1)';
     }, 150);
     audioManager.playCombo(combo);
+
+    // 检测连击里程碑
+    for (const m of COMBO_MILESTONES) {
+      if (combo >= m.threshold && lastComboMilestone < m.threshold) {
+        lastComboMilestone = m.threshold;
+        triggerComboMilestone(m);
+        break;
+      }
+    }
   } else {
     comboDisplay.style.opacity = '0';
+    lastComboMilestone = 0;
   }
+}
+
+function triggerComboMilestone(milestone) {
+  const el = document.getElementById('comboMilestone');
+  if (el) {
+    el.textContent = milestone.title;
+    el.style.color = milestone.color; // 动态颜色保留内联
+    el.classList.add('show');
+    setTimeout(() => { el.classList.remove('show'); }, 1500);
+  }
+  screenShake.shake(milestone.shake, 0.3);
+  particleSystem.emit(player.position, 30, new THREE.Color(milestone.color), 2.0);
 }
 
 function showPowerupIndicator(type) {
   const indicator = document.getElementById('powerupIndicator');
-  if (type === 'invincible') {
-    indicator.textContent = '神速无敌 INVINCIBLE';
-    indicator.style.color = '#e6a23e';
-  } else if (type === 'energy') {
-    indicator.textContent = '能量充满 FULL ENERGY';
-    indicator.style.color = '#4ee6e0';
-  } else if (type === 'shield') {
-    indicator.textContent = '护盾充能 SHIELD ON';
-    indicator.style.color = '#3b82f6';
-  } else if (type === 'magnet') {
-    indicator.textContent = '磁力吸引 MAGNET ON';
-    indicator.style.color = '#ef4444';
-  } else if (type === 'boost') {
-    indicator.textContent = '超速冲刺 HYPERDRIVE';
-    indicator.style.color = '#10b981';
+  const text = POWERUP_INDICATORS[type];
+  if (text) {
+    indicator.textContent = text;
+    indicator.style.color = hexToCss(POWERUP_COLORS[type]);
   }
   indicator.style.opacity = '1';
   setTimeout(() => {
@@ -2381,7 +3944,7 @@ function showAchievement(achievementKey) {
   
   audioManager.playAchievement();
   
-  const achievementColor = new THREE.Color(0xe6a23e);
+  const achievementColor = new THREE.Color(COLORS.WARM);
   particleSystem.emit(player.position, 40, achievementColor, 2.5);
   
   setTimeout(() => {
@@ -2433,13 +3996,13 @@ function setGravity(state) {
   gravityState = state;
   targetRotZ = -state * Math.PI/2;
 
-  if (energy >= 1) {
-    energy -= 1;
+  if (energy >= CONFIG.WALL_SWITCH_ENERGY_COST) {
+    energy -= CONFIG.WALL_SWITCH_ENERGY_COST;
     updateEnergyBar();
   }
 
   audioManager.playWallSwitch();
-  if (navigator.vibrate) navigator.vibrate(15);
+  if (navigator.vibrate) navigator.vibrate(HAPTIC_PATTERNS.wallSwitch);
 
   const sColor = new THREE.Color(currentSkinObj.color);
   particleSystem.emit(player.position, 12, sColor, 1.5);
@@ -2469,7 +4032,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (!gameRunning && gameOverScreen.style.display === 'flex') {
+  if (!gameRunning && !gameOverScreen.classList.contains('hidden')) {
     if (e.code === 'Space' || e.code === 'Enter') {
       e.preventDefault();
       restartGame();
@@ -2534,14 +4097,14 @@ const gameOverScreen = document.getElementById('gameOverScreen');
 const pauseScreen = document.getElementById('pauseScreen');
 const pauseScoreEl = document.getElementById('pauseScore');
 
-let leaderboard = JSON.parse(localStorage.getItem('g_tunnel_leaderboard') || '[]');
+let leaderboard = safeParseJSON(CONFIG.STORAGE_KEYS.LEADERBOARD, []);
 
-function saveScore(score, maxCombo, difficulty) {
+function saveScore(score, maxCombo, difficulty, isChallenge = false) {
   const dateStr = new Date().toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-  leaderboard.push({ score, combo: maxCombo, difficulty, date: dateStr });
+  leaderboard.push({ score, combo: maxCombo, difficulty, date: dateStr, challenge: isChallenge });
   leaderboard.sort((a, b) => b.score - a.score);
   leaderboard = leaderboard.slice(0, 5);
-  localStorage.setItem('g_tunnel_leaderboard', JSON.stringify(leaderboard));
+  safeSetItem(CONFIG.STORAGE_KEYS.LEADERBOARD, JSON.stringify(leaderboard));
   renderLeaderboardUI();
 }
 
@@ -2549,15 +4112,16 @@ function renderLeaderboardUI() {
   const tbody = document.getElementById('leaderboardBody');
   tbody.innerHTML = '';
   if (leaderboard.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="color: #7d93a6;">暂无记录，快去创造历史吧！</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="leaderboard-empty">暂无记录，快去创造历史吧！</td></tr>`;
     return;
   }
   leaderboard.forEach((item, index) => {
     const diffNames = { easy: '简单', normal: '普通', hard: '困难' };
+    const challengeTag = item.challenge ? ' <span class="challenge-tag">[挑战]</span>' : '';
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${index + 1}</td>
-      <td>${item.score} M</td>
+      <td>${item.score} M${challengeTag}</td>
       <td>x${item.combo}</td>
       <td>${diffNames[item.difficulty] || item.difficulty}</td>
       <td>${item.date}</td>
@@ -2569,10 +4133,8 @@ function renderLeaderboardUI() {
 function triggerDamageFlash() {
   const flash = document.getElementById('damageFlash');
   if (flash) {
-    flash.style.opacity = '1';
-    setTimeout(() => {
-      flash.style.opacity = '0';
-    }, 120);
+    flash.classList.add('active');
+    setTimeout(() => { flash.classList.remove('active'); }, 120);
   }
 }
 
@@ -2580,13 +4142,17 @@ function triggerDamageFlash() {
 document.querySelectorAll('.menu-tab').forEach(tab => {
   tab.addEventListener('click', function() {
     audioManager.playClick();
-    document.querySelectorAll('.menu-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.menu-tab').forEach(t => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+    });
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    
+
     this.classList.add('active');
+    this.setAttribute('aria-selected', 'true');
     const tabId = 'tab-' + this.dataset.tab;
     document.getElementById(tabId).classList.add('active');
-    
+
     if (this.dataset.tab === 'skins') {
       renderSkinsUI();
     } else if (this.dataset.tab === 'leaderboard') {
@@ -2596,9 +4162,75 @@ document.querySelectorAll('.menu-tab').forEach(tab => {
 });
 
 // UI 悬停音效绑定
-document.querySelectorAll('button, .menu-tab, .difficulty-btn, .audio-btn, input').forEach(el => {
+document.querySelectorAll('button, input').forEach(el => {
   el.addEventListener('mouseenter', () => audioManager.playHover());
   el.addEventListener('click', () => audioManager.playClick());
+});
+
+// 暂停按钮点击（补充 Escape 键之外的触控方式）
+document.getElementById('pauseBtn').addEventListener('click', togglePause);
+
+// 音频控件绑定
+document.getElementById('musicBtn').addEventListener('click', function() {
+  const enabled = audioManager.toggleMusic();
+  this.classList.toggle('active', enabled);
+  this.setAttribute('aria-pressed', String(enabled));
+});
+document.getElementById('sfxBtn').addEventListener('click', function() {
+  const enabled = audioManager.toggleSfx();
+  this.classList.toggle('active', enabled);
+  this.setAttribute('aria-pressed', String(enabled));
+});
+document.getElementById('volumeSlider').addEventListener('input', function() {
+  audioManager.setVolume(this.value / 100);
+});
+
+// 分享按钮事件
+document.getElementById('shareBtn').addEventListener('click', () => {
+  const seedStr = currentSeed.toString(36).toUpperCase();
+  const score = Math.floor(distance);
+  const shareUrl = `${window.location.origin}${window.location.pathname}?seed=${seedStr}&s=${score}&c=${maxCombo}`;
+  const btn = document.getElementById('shareBtn');
+  if (!btn) return;
+
+  let feedbackShown = false;
+  function showFeedback(text) {
+    if (feedbackShown) return;
+    feedbackShown = true;
+    btn.textContent = text;
+    setTimeout(() => { btn.textContent = '分享此地图'; }, 2000);
+  }
+
+  // 500ms 超时兜底，确保沙箱/受限环境也有视觉反馈
+  const timeoutId = setTimeout(() => showFeedback('链接已生成（请手动复制）'), 500);
+
+  function onCopySuccess() {
+    clearTimeout(timeoutId);
+    showFeedback('链接已复制到剪贴板!');
+  }
+
+  function fallbackCopy(text) {
+    clearTimeout(timeoutId);
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      showFeedback(success ? '链接已复制到剪贴板!' : '链接已生成（请手动复制）');
+    } catch (e) {
+      showFeedback('链接已生成（请手动复制）');
+    }
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(shareUrl).then(onCopySuccess).catch(() => fallbackCopy(shareUrl));
+  } else {
+    fallbackCopy(shareUrl);
+  }
 });
 
 function togglePause() {
@@ -2607,12 +4239,12 @@ function togglePause() {
   gamePaused = !gamePaused;
   
   if (gamePaused) {
-    pauseScreen.style.display = 'flex';
+    pauseScreen.classList.remove('hidden');
     pauseScoreEl.textContent = Math.floor(distance);
     audioManager.stopMusic();
     audioManager.playPause();
   } else {
-    pauseScreen.style.display = 'none';
+    pauseScreen.classList.add('hidden');
     audioManager.startMusic();
     audioManager.playResume();
   }
@@ -2675,42 +4307,37 @@ function checkCollisions() {
 
         powerupsCollected++;
         cumulativePowerups++;
-        powerupBonusPoints += 50;
+        powerupBonusPoints += CONFIG.POWERUP_BONUS;
 
         audioManager.collectPowerup(powerup.type);
 
-        const pColor = new THREE.Color(
-          powerup.type === 'energy' ? 0x4ee6e0 :
-          powerup.type === 'invincible' ? 0xe6a23e :
-          powerup.type === 'shield' ? 0x3b82f6 :
-          powerup.type === 'magnet' ? 0xef4444 : 0x10b981
-        );
+        const pColor = new THREE.Color(POWERUP_COLORS[powerup.type] || COLORS.PRIMARY);
         particleSystem.emit(player.position, 25, pColor, 2.0);
 
         if (powerup.type === 'energy') {
-          energy = Math.min(energy + 35, maxEnergy);
+          energy = Math.min(energy + CONFIG.ENERGY_REFILL_AMOUNT, maxEnergy);
           updateEnergyBar();
           showPowerupIndicator('energy');
         } else if (powerup.type === 'invincible') {
           isInvincible = true;
           invincibleTimer = Math.max(invincibleTimer, invincibleDuration);
           showPowerupIndicator('invincible');
-          playerGlow.material.color.setHex(0xe6a23e);
+          playerGlow.material.color.setHex(POWERUP_COLORS.invincible);
         } else if (powerup.type === 'shield') {
           shieldActive = true;
           shieldBubble.visible = true;
           showPowerupIndicator('shield');
         } else if (powerup.type === 'magnet') {
           magnetActive = true;
-          magnetTimer = 8.0;
+          magnetTimer = CONFIG.POWERUP_DURATIONS.magnet;
           showPowerupIndicator('magnet');
         } else if (powerup.type === 'boost') {
           boostActive = true;
-          boostTimer = 4.0;
+          boostTimer = CONFIG.POWERUP_DURATIONS.boost;
           isInvincible = true;
-          invincibleTimer = Math.max(invincibleTimer, 4.0);
+          invincibleTimer = Math.max(invincibleTimer, CONFIG.POWERUP_DURATIONS.boost);
           showPowerupIndicator('boost');
-          playerGlow.material.color.setHex(0x10b981);
+          playerGlow.material.color.setHex(POWERUP_COLORS.boost);
         }
       }
     }
@@ -2734,31 +4361,34 @@ function checkCollisions() {
       const zCrossed = (prevWorldZ > PLAYER_Z + threshold && worldZ < PLAYER_Z - threshold) ||
                        (prevWorldZ < PLAYER_Z - threshold && worldZ > PLAYER_Z + threshold);
 
-      if (obs.state === gravityState && (zNear || zCrossed)) {
+      if (obs.state === gravityState && (zNear || zCrossed) && !obs._disabled) {
 
         const playerYBottom = Math.min(prevPlayerY, playerY);
         const playerYTop = Math.max(prevPlayerY, playerY);
         let collided = false;
         if (obs.type === 'laser') {
-          if (playerYBottom < 0.68 && playerYTop >= 0) collided = true;
+          if (obs.armed === false) collided = false;
+          else if (playerYBottom < CONFIG.PLAYER_HITBOX_Y && playerYTop >= 0) collided = true;
         } else {
           let playerLocalOffset = 0;
           let obsLocalOffset = obs.mesh.position.x;
           if (obs.state === 1 || obs.state === 3) {
             obsLocalOffset = obs.mesh.position.y;
           }
-          if (playerYBottom < 1.05 && playerYTop >= 0 && Math.abs(obsLocalOffset - playerLocalOffset) < 1.2) {
+          if (playerYBottom < 1.05 && playerYTop >= 0 && Math.abs(obsLocalOffset - playerLocalOffset) < CONFIG.LATERAL_HIT_THRESHOLD) {
             collided = true;
           }
         }
 
         if (collided) {
           collisionsCount++;
+          recentEvents.push({ time: elapsedTime, success: false });
+          if (recentEvents.length > 50) recentEvents.shift();
           removedObstacles.push(obs);
 
           if (isInvincible) {
             audioManager.playCollision();
-            if (navigator.vibrate) navigator.vibrate(20);
+            if (navigator.vibrate) navigator.vibrate(HAPTIC_PATTERNS.collision);
             particleSystem.emit(obs.mesh.position, 40, new THREE.Color(0xff6b6b), 2.5);
             screenShake.shake(0.35, 0.2);
 
@@ -2776,16 +4406,16 @@ function checkCollisions() {
             shieldBubble.visible = false;
 
             audioManager.playCollision();
-            if (navigator.vibrate) navigator.vibrate(20);
-            particleSystem.emit(player.position, 35, new THREE.Color(0x3b82f6), 2.2);
+            if (navigator.vibrate) navigator.vibrate(HAPTIC_PATTERNS.collision);
+            particleSystem.emit(player.position, 35, new THREE.Color(COLORS.SHIELD), 2.2);
             screenShake.shake(0.25, 0.18);
           } else {
-            energy -= 35;
+            energy -= CONFIG.COLLISION_ENERGY_PENALTY;
             updateEnergyBar();
 
             audioManager.playCollision();
-            if (navigator.vibrate) navigator.vibrate([15, 5, 25]);
-            particleSystem.emit(player.position, 40, new THREE.Color(0xff3b3b), 3.0);
+            if (navigator.vibrate) navigator.vibrate(HAPTIC_PATTERNS.damage);
+            particleSystem.emit(player.position, 40, new THREE.Color(OBSTACLE_COLOR), 3.0);
             screenShake.shake(0.65, 0.35);
             triggerDamageFlash();
 
@@ -2795,10 +4425,12 @@ function checkCollisions() {
             }
           }
         }
-      } else if ((Math.abs(worldZ - PLAYER_Z) < 1.2 || zCrossed) && !obs.nearMissed) {
+      } else if ((Math.abs(worldZ - PLAYER_Z) < CONFIG.LATERAL_HIT_THRESHOLD || zCrossed) && !obs.nearMissed) {
         // Near miss detection when obstacle passes but no collision occurred
         obs.nearMissed = true;
         triggerNearMiss();
+        recentEvents.push({ time: elapsedTime, success: true });
+        if (recentEvents.length > 50) recentEvents.shift();
       }
     }
 
@@ -2812,12 +4444,26 @@ function checkCollisions() {
 }
 
 const ZONE_THEMES = {
-  1: { colors: [0x3ee6e0, 0x00f0ff, 0x3ee6e0, 0x00f0ff], name: '第一区域: 霓虹起点' },
+  1: { colors: [0x00E5C7, 0x00ffcc, 0x00E5C7, 0x00ffcc], name: '第一区域: 霓虹起点' },
   2: { colors: [0x8b5cf6, 0xa78bfa, 0x8b5cf6, 0xa78bfa], name: '第二区域: 脉冲幽谷' },
   3: { colors: [0xf97316, 0xfdba74, 0xf97316, 0xfdba74], name: '第三区域: 熔岩地带' },
   4: { colors: [0x22c55e, 0x86efac, 0x22c55e, 0x86efac], name: '第四区域: 黑客矩阵' },
   5: { colors: [0xeab308, 0xfef08a, 0xeab308, 0xfef08a], name: '极限挑战: 黄金传说' }
 };
+
+const ZONE_EFFECTS = {
+  1: { type: 'none' },
+  2: { type: 'blink', interval: 2.0 },
+  3: { type: 'pulse', interval: 1.5, amplitude: 0.3 },
+  4: { type: 'swap', interval: 3.0 },
+  5: { type: 'speed', multiplier: 1.4 },
+};
+
+// 工厂函数：返回浅拷贝，避免障碍物修改共享的 ZONE_EFFECTS 对象
+function getZoneEffect(zoneNum) {
+  const effect = ZONE_EFFECTS[Math.min(5, zoneNum)];
+  return effect ? { ...effect } : { type: 'none' };
+}
 
 function updateZoneTheme(zoneNum) {
   const theme = ZONE_THEMES[Math.min(5, zoneNum)];
@@ -2861,25 +4507,25 @@ function triggerZoneChange(zoneNum) {
   }
   
   audioManager.playZoneTransition();
+  audioManager.setZone(zoneNum); // 切换配乐 preset（下一小节自然切，不重启调度器）
 }
 
 function getCompositeScore() {
-  let diffBonus = 1.2;
-  if (currentDifficulty === 'easy') diffBonus = 1.0;
-  if (currentDifficulty === 'hard') diffBonus = 1.5;
-  const comboMult = Math.min(3.0, 1.0 + combo * 0.1);
+  const diffBonus = CONFIG.SCORE_BONUS[currentDifficulty] ?? CONFIG.SCORE_BONUS.normal;
+  const comboMult = Math.min(CONFIG.COMBO_MULT_MAX, 1.0 + combo * CONFIG.COMBO_MULT_STEP);
   return Math.floor(Math.floor(distance) * comboMult * diffBonus + powerupBonusPoints);
 }
 
 function startCountdown() {
   audioManager.playClick();
   audioManager.init();
+  audioManager.stopMenuMusic(); // 停止菜单配乐，避免与倒计时音效叠加
   
   startGame();
   
   const overlay = document.getElementById('countdownOverlay');
   const text = document.getElementById('countdownText');
-  if (overlay) overlay.style.display = 'flex';
+  if (overlay) overlay.classList.remove('hidden');
   
   let count = 3;
   if (text) {
@@ -2901,7 +4547,7 @@ function startCountdown() {
       audioManager.playCountdownGo();
     } else {
       clearInterval(interval);
-      if (overlay) overlay.style.display = 'none';
+      if (overlay) overlay.classList.add('hidden');
       startGameLoop();
     }
   }, 800);
@@ -2915,6 +4561,14 @@ function startGameLoop() {
 }
 
 function startGame() {
+  // 种子初始化
+  if (isChallengeMode && challengeData && challengeData.seed) {
+    currentSeed = challengeData.seed;
+  } else {
+    currentSeed = Date.now();
+  }
+  gameRng = mulberry32(currentSeed);
+
   loadSkins();
   applySkin(currentSkin);
   initTrail();
@@ -2943,6 +4597,9 @@ function startGame() {
   combo = 0;
   maxCombo = 0;
   comboTimer = 0;
+  lastComboMilestone = 0;
+  recentEvents = [];
+  dynamicDifficultyMod = 1.0;
   powerupsCollected = 0;
   powerupBonusPoints = 0;
   collisionsCount = 0;
@@ -2970,19 +4627,29 @@ function startGame() {
     }
   });
 
-  startScreen.style.display = 'none';
-  gameOverScreen.style.display = 'none';
-  pauseScreen.style.display = 'none';
-  hudEl.style.display = 'block';
+  startScreen.classList.add('hidden');
+  gameOverScreen.classList.add('hidden');
+  pauseScreen.classList.add('hidden');
+  hudEl.classList.remove('hidden');
   document.getElementById('comboDisplay').style.opacity = '0';
   document.getElementById('powerupIndicator').style.opacity = '0';
+
+  // 挑战模式横幅
+  if (isChallengeMode && challengeData) {
+    const banner = document.getElementById('challengeBanner');
+    if (banner) {
+      banner.textContent = `挑战模式 · 原始记录: ${challengeData.score}米 x${challengeData.combo}`;
+      banner.classList.add('show');
+      setTimeout(() => { banner.classList.remove('show'); }, 3500);
+    }
+  }
 }
 
 function startDeathAnimation() {
   deathAnimating = true;
   deathTimer = 1.2;
   screenShake.shake(1.2, 1.2);
-  particleSystem.emit(player.position, 60, new THREE.Color(0xff3b3b), 3.5);
+  particleSystem.emit(player.position, 60, new THREE.Color(OBSTACLE_COLOR), 3.5);
   player.visible = false;
 }
 
@@ -2998,9 +4665,9 @@ function endGame() {
   finalComboEl.textContent = maxCombo;
 
   totalCredits += Math.floor(compositeScore * 0.1);
-  localStorage.setItem('g_tunnel_credits', totalCredits);
+  safeSetItem(CONFIG.STORAGE_KEYS.CREDITS, totalCredits);
 
-  saveScore(finalDist, maxCombo, currentDifficulty);
+  saveScore(finalDist, maxCombo, currentDifficulty, isChallengeMode);
 
   const unlockedCount = Object.values(achievements).filter(a => a.unlocked).length;
   finalAchievementsEl.textContent = unlockedCount;
@@ -3008,7 +4675,22 @@ function endGame() {
   audioManager.stopMusic();
   audioManager.playGameOver();
 
-  gameOverScreen.style.display = 'flex';
+  // 挑战模式成绩对比
+  const compareEl = document.getElementById('challengeCompare');
+  if (compareEl) {
+    if (isChallengeMode && challengeData) {
+      const myScore = Math.floor(distance);
+      const beat = myScore > challengeData.score;
+      compareEl.innerHTML = beat
+        ? `<p class="desc challenge-beat">超越原始记录 ${challengeData.score}米!</p>`
+        : `<p class="desc challenge-missed">原始记录: ${challengeData.score}米 · 差距: ${challengeData.score - myScore}米</p>`;
+      compareEl.classList.remove('hidden');
+    } else {
+      compareEl.classList.add('hidden');
+    }
+  }
+
+  gameOverScreen.classList.remove('hidden');
 
   document.getElementById('powerupIndicator').style.opacity = '0';
   document.getElementById('comboDisplay').style.opacity = '0';
@@ -3026,23 +4708,44 @@ function returnToMenu() {
   gamePaused = false;
   audioManager.stopMusic();
   audioManager.stopWindSound();
-  
-  startScreen.style.display = 'flex';
-  gameOverScreen.style.display = 'none';
-  pauseScreen.style.display = 'none';
-  hudEl.style.display = 'none';
-  
+
+  startScreen.classList.remove('hidden');
+  gameOverScreen.classList.add('hidden');
+  pauseScreen.classList.add('hidden');
+  hudEl.classList.add('hidden');
+
   renderSkinsUI();
+
+  audioManager.init();
+  audioManager.startMenuMusic();
 }
 
 // 难度选择
 document.querySelectorAll('.difficulty-btn').forEach(btn => {
   btn.addEventListener('click', function() {
-    document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.difficulty-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-pressed', 'false');
+    });
     this.classList.add('active');
+    this.setAttribute('aria-pressed', 'true');
     currentDifficulty = this.dataset.difficulty;
   });
 });
+
+// ============ 首次用户交互启动菜单配乐（浏览器自动播放策略） ============
+let menuMusicStarted = false;
+function ensureMenuMusic() {
+  if (menuMusicStarted) return;
+  if (startScreen.classList.contains('hidden')) return; // 已离开菜单（如直接点开始），不启动
+  menuMusicStarted = true;
+  audioManager.init();
+  audioManager.startMenuMusic();
+  document.removeEventListener('click', ensureMenuMusic);
+  document.removeEventListener('touchstart', ensureMenuMusic);
+}
+document.addEventListener('click', ensureMenuMusic);
+document.addEventListener('touchstart', ensureMenuMusic);
 
 // ============ 游戏按钮事件绑定 ============
 document.getElementById('startBtn').addEventListener('click', () => {
@@ -3055,7 +4758,7 @@ document.getElementById('restartBtn').addEventListener('click', () => {
 
 gameOverScreen.addEventListener('touchend', (e) => {
   if (e.target.closest('button')) return;
-  if (!gameRunning && gameOverScreen.style.display === 'flex') {
+  if (!gameRunning && !gameOverScreen.classList.contains('hidden')) {
     e.preventDefault();
     restartGame();
   }
@@ -3148,10 +4851,10 @@ function animate() {
     
     let speedMult = settings.speedMultiplier;
     if (boostActive) {
-      speedMult *= 1.85;
+      speedMult *= CONFIG.BOOST_SPEED_MULT;
     }
-    
-    speed = (9 + elapsedTime*0.34) * speedMult;
+
+    speed = (CONFIG.BASE_SPEED + elapsedTime * CONFIG.SPEED_ACCEL) * speedMult;
     distance += speed*dt;
 
     if (starMaterial && starMaterial.uniforms) {
@@ -3188,7 +4891,60 @@ function animate() {
           obs.mesh.rotation.y += dt * obs.rotationSpeed;
           obs.mesh.rotation.x += dt * obs.rotationSpeed * 0.4;
         }
-        
+
+        // 激光蓄力状态更新
+        if (obs.type === 'laser' && obs.armingTimer > 0) {
+          obs.armingTimer -= dt;
+          const progress = 1 - (obs.armingTimer / 0.45);
+          // 蓄力中：激光从极细逐渐变粗（避免共享材质问题，用scale模拟）
+          const scaleVal = 0.1 + progress * 0.9;
+          obs.mesh.scale.set(scaleVal, scaleVal, scaleVal);
+          if (obs.armingTimer <= 0) {
+            obs.armed = true;
+            obs.mesh.scale.set(1, 1, 1);
+          }
+        }
+
+        // Zone 招牌机制更新
+        if (obs.zoneEffect && obs.mesh) {
+          switch (obs.zoneEffect.type) {
+            case 'blink':
+              obs.blinkTimer += dt;
+              if (obs.blinkTimer >= obs.zoneEffect.interval) {
+                obs.mesh.visible = !obs.mesh.visible;
+                obs.blinkTimer = 0;
+                obs._disabled = !obs.mesh.visible;
+              }
+              break;
+            case 'pulse': {
+              obs.pulseTimer += dt;
+              const pulseScale = 1 + Math.sin(obs.pulseTimer / obs.zoneEffect.interval * Math.PI * 2) * obs.zoneEffect.amplitude;
+              obs.mesh.scale.setScalar(pulseScale);
+              break;
+            }
+            case 'swap':
+              if (obs.type !== 'laser') {
+                obs.swapTimer += dt;
+                if (obs.swapTimer >= obs.zoneEffect.interval) {
+                  obs.swapTimer = 0;
+                  obs.state = (obs.state + 2) % 4;
+                  const swSize = CONFIG.OBSTACLE_SIZE;
+                  let swPos;
+                  if (obs.state===0) swPos = [0, -R+swSize/2, obs.localZ];
+                  if (obs.state===1) swPos = [R-swSize/2, 0, obs.localZ];
+                  if (obs.state===2) swPos = [0, R-swSize/2, obs.localZ];
+                  if (obs.state===3) swPos = [-R+swSize/2, 0, obs.localZ];
+                  obs.mesh.position.set(...swPos);
+                }
+              }
+              break;
+            case 'speed':
+              obs.moveSpeed *= obs.zoneEffect.multiplier;
+              obs.zoneEffect.type = 'none';
+              break;
+          }
+        }
+
         if (obs.isMoving && obs.mesh) {
           let val = obs.mesh.position.x;
           if (obs.state === 1 || obs.state === 3) {
@@ -3196,7 +4952,7 @@ function animate() {
           }
           val += obs.moveDirection * obs.moveSpeed * dt;
           
-          const maxVal = R - 1.15;
+          const maxVal = R - CONFIG.OBSTACLE_SIZE;
           if (Math.abs(val) > maxVal) {
             obs.moveDirection *= -1;
             val = Math.sign(val) * maxVal;
@@ -3322,7 +5078,7 @@ function animate() {
       playerGlow.scale.setScalar(baseScale + pulse);
       playerGlow.material.opacity = 0.15;
     } else {
-      const baseScale = 1.2 + (speed - 9) * 0.02;
+      const baseScale = 1.2 + (speed - CONFIG.BASE_SPEED) * 0.02;
       const pulse = Math.sin(elapsedTime * 20.0) * 0.15;
       playerGlow.scale.setScalar(baseScale + pulse);
       playerGlow.material.opacity = 0.28 + Math.sin(elapsedTime * 20.0) * 0.12;
@@ -3370,6 +5126,16 @@ function animate() {
       }
     }
 
+    // 动态难度更新
+    recentEvents = recentEvents.filter(e => elapsedTime - e.time < 10);
+    if (Math.floor(elapsedTime * 0.5) > Math.floor((elapsedTime - dt) * 0.5)) {
+      if (recentEvents.length >= 3) {
+        const successRate = recentEvents.filter(e => e.success).length / recentEvents.length;
+        if (successRate > 0.8) dynamicDifficultyMod = Math.min(1.3, dynamicDifficultyMod + 0.05);
+        else if (successRate < 0.4) dynamicDifficultyMod = Math.max(0.7, dynamicDifficultyMod - 0.05);
+      }
+    }
+
     if (!isJumping) {
       const runCycle = elapsedTime * (14 + speed * 0.2);
       const bob = Math.sin(runCycle) * 0.05;
@@ -3407,7 +5173,14 @@ function animate() {
     checkCollisions();
     checkAchievements();
 
-    scoreEl.textContent = getCompositeScore();
+    const currentDist = Math.floor(distance);
+    const compositeScore = getCompositeScore();
+    scoreEl.textContent = currentDist;
+    const scoreBonusEl = document.getElementById('scoreBonus');
+    if (scoreBonusEl) {
+      const bonus = compositeScore - currentDist;
+      scoreBonusEl.textContent = bonus > 0 ? `+${bonus} 综合评分` : '';
+    }
     speedEl.textContent = speed.toFixed(1);
     
     speedLinesFrameCount++;
@@ -3429,6 +5202,8 @@ renderSkinsUI();
 renderLeaderboardUI();
 
 animate();
+
+})();
 </script>
 </body>
 </html>
