@@ -1,0 +1,75 @@
+/* 所有按钮的基础重置（消除浏览器默认外观） */
+button {
+  cursor: pointer;
+  font-family: inherit;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+}
+
+/* 主操作按钮：渐变背景 + 发光阴影 + 光泽扫过动效 */
+button.btn {
+  --btn-glow: 0, 229, 199;
+  background: linear-gradient(135deg, #00E5C7 0%, #00b8a0 100%);
+  color:#031215; border-radius: var(--radius-pill);
+  padding:13px 38px; font-size:14px; font-weight:700;
+  letter-spacing:1px;
+  font-family: var(--font-display);
+  box-shadow:
+    0 6px 22px rgba(var(--btn-glow), 0.35),
+    inset 0 1px 0 rgba(255,255,255,0.4),
+    inset 0 -2px 0 rgba(0,0,0,0.15);
+  transition: all 0.2s var(--ease-spring);
+  position: relative;
+  overflow: hidden;
+  animation: contentIn 0.6s var(--ease-smooth) 0.4s both;
+}
+button.btn::before {
+  content:''; position:absolute; top:0; left:-100%; width:60%; height:100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+  transition: left 0.5s var(--ease-smooth);
+}
+button.btn:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 10px 30px rgba(var(--btn-glow), 0.5),
+    inset 0 1px 0 rgba(255,255,255,0.5),
+    0 0 0 1px rgba(var(--btn-glow), 0.3);
+}
+button.btn:hover::before { left:120%; }
+button.btn:active { transform: translateY(0) scale(0.97); }
+button.btn:focus-visible,
+.menu-tab:focus-visible,
+.difficulty-btn:focus-visible,
+.skin-btn:focus-visible,
+#pauseBtn:focus-visible,
+.audio-controls button:focus-visible,
+input[type=range]:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(0,229,199,0.18);
+}
+/* 加载状态：JS 给按钮加 .loading 类即可显示旋转指示器 */
+button.btn.loading {
+  color: transparent !important;
+  pointer-events: none;
+  position: relative;
+}
+button.btn.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 18px; height: 18px;
+  margin: -9px 0 0 -9px;
+  border: 2.5px solid rgba(3, 18, 21, 0.3);
+  border-top-color: #031215;
+  border-radius: 50%;
+  animation: btnSpin 0.6s linear infinite;
+}
+@keyframes btnSpin { to { transform: rotate(360deg); } }
+
+/* 按钮色彩变体：仅覆盖渐变与发光色，box-shadow 由 button.btn 基类统一驱动 */
+.btn-danger { --btn-glow: 255, 77, 109; background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%); }
+.btn-secondary { --btn-glow: 107, 123, 255; background: linear-gradient(135deg, #6b7bff 0%, #5a6aee 100%); }
+.btn + .btn { margin-top: 10px; }

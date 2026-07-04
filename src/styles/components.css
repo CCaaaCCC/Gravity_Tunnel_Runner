@@ -1,0 +1,249 @@
+/* ============ 涂装车间 ============ */
+.credits-display {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--accent-gold);
+  margin-bottom: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(245,200,66,0.06);
+  border: 1px solid rgba(245,200,66,0.2);
+  border-radius: var(--radius-pill);
+  letter-spacing: 0.5px;
+}
+.credits-display i { font-size: 13px; }
+.skins-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 6px;
+  margin-bottom: 20px;
+}
+.skins-grid::-webkit-scrollbar { width: 4px; }
+.skins-grid::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); border-radius: 2px; }
+.skins-grid::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 2px; }
+.skin-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 12px 14px;
+  transition: all 0.25s var(--ease-smooth);
+  overflow: hidden;
+}
+.skin-card:hover {
+  border-color: var(--panel-border);
+  background: rgba(0,229,199,0.04);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.3), 0 0 12px rgba(0,229,199,0.1);
+}
+/* 已装备角标 */
+.skin-card.equipped {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px var(--accent-primary), 0 0 16px rgba(0,229,199,0.2);
+}
+.skin-card.equipped::after {
+  content: '已装备';
+  position: absolute; top: 0; right: 0;
+  background: var(--accent-primary); color: #031215;
+  font-size: 8px; font-weight: 700; letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: 0 12px 0 8px;
+  font-family: var(--font-display);
+}
+/* 锁定遮罩 */
+.skin-card.locked .skin-info { opacity: 0.55; }
+.skin-card.locked::before {
+  content: '\f023';
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  position: absolute; top: 8px; right: 8px;
+  font-size: 11px; color: var(--text-muted);
+  z-index: 2;
+}
+.skin-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.skin-color-preview {
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.15);
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+  transition: transform 0.3s var(--ease-smooth);
+  flex-shrink: 0;
+}
+.skin-card:hover .skin-color-preview { transform: rotate(8deg) scale(1.1); }
+.skin-name-container { text-align: left; flex: 1; min-width: 0; }
+.skin-name {
+  font-size: 13px; font-weight: 700; color: var(--text-primary);
+  font-family: var(--font-display); letter-spacing: 0.3px;
+}
+.skin-cost {
+  font-size: 10.5px; color: var(--accent-gold); margin-top: 2px;
+  text-shadow: 0 0 8px rgba(245,200,66,0.3);
+}
+.skin-btn {
+  padding: 7px 14px;
+  font-size: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: all 0.2s var(--ease-smooth);
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-display);
+  letter-spacing: 0.5px;
+}
+.skin-btn.equip {
+  background: transparent;
+  border: 1px solid var(--accent-primary);
+  color: var(--accent-primary);
+}
+.skin-btn.equip:hover {
+  background: rgba(0,229,199,0.12);
+  box-shadow: 0 0 10px rgba(0,229,199,0.2);
+}
+.skin-btn.equipped {
+  background: rgba(0,229,199,0.15);
+  border: 1px solid var(--accent-primary);
+  color: var(--accent-primary);
+  cursor: default;
+  box-shadow: inset 0 0 0 1px rgba(0,229,199,0.1);
+}
+.skin-btn.buy {
+  background: linear-gradient(135deg, var(--accent-warm), #e07020);
+  color: #1a0a02;
+  border: none;
+}
+.skin-btn.buy:hover {
+  box-shadow: 0 4px 14px var(--accent-warm-glow);
+  transform: translateY(-1px);
+}
+
+/* ============ 排行榜 ============ */
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 13px;
+}
+.leaderboard-table th, .leaderboard-table td {
+  padding: 11px 6px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.leaderboard-table th {
+  color: var(--accent-primary);
+  font-weight: 600;
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+  font-size: 11px;
+  text-transform: uppercase;
+  background: rgba(0,229,199,0.04);
+  border-bottom: 1px solid var(--panel-border-soft);
+}
+.leaderboard-table td {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  transition: background 0.2s, color 0.2s;
+}
+.leaderboard-table tbody tr:hover td {
+  background: rgba(0,229,199,0.04);
+  color: var(--text-primary);
+}
+.leaderboard-table tr:first-child td {
+  color: var(--accent-gold);
+  font-weight: 700;
+  text-shadow: 0 0 10px rgba(245,200,66,0.4);
+  background: linear-gradient(90deg, transparent, rgba(245,200,66,0.08), transparent);
+}
+/* 排行榜前三名微妙差异色 */
+.leaderboard-table tbody tr:nth-child(2) td { color: var(--text-primary); }
+.leaderboard-table tbody tr:nth-child(3) td { color: var(--text-secondary); }
+
+/* ============ 成就列表 ============ */
+.ach-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background: rgba(0,229,199,0.06);
+  border: 1px solid rgba(0,229,199,0.2);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--accent-primary);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.ach-summary i { font-size: 13px; }
+.ach-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 6px;
+  margin-bottom: 20px;
+}
+.ach-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--panel-glass);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-md);
+  transition: all 0.25s var(--ease-smooth);
+}
+.ach-item.unlocked {
+  border-color: rgba(245,200,66,0.25);
+  background: linear-gradient(135deg, rgba(245,200,66,0.04), var(--panel-glass));
+}
+.ach-item.unlocked .ach-item-icon {
+  color: var(--accent-gold);
+  text-shadow: 0 0 10px rgba(245,200,66,0.5);
+}
+.ach-item.unlocked .ach-item-name { color: var(--text-primary); }
+.ach-item.unlocked .ach-item-desc { color: var(--text-muted); }
+.ach-item.locked .ach-item-icon {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+.ach-item.locked .ach-item-name { color: var(--text-muted); }
+.ach-item.locked .ach-item-desc { color: var(--text-muted); opacity: 0.6; }
+.ach-item-icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.ach-item-body { flex: 1; min-width: 0; }
+.ach-item-name {
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.ach-item-desc {
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.ach-list::-webkit-scrollbar { width: 4px; }
+.ach-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.leaderboard-empty { color: var(--text-muted); }
+.challenge-tag { color: var(--accent-warm); font-size: 0.8em; }

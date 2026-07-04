@@ -1,0 +1,11 @@
+# 后端构建上下文排除项
+.venv
+__pycache__
+*.pyc
+_libs
+tests
+.pytest_cache
+.env
+.env.*
+!.env.example
+*.md

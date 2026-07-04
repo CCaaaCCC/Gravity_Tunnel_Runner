@@ -1,0 +1,16 @@
+{
+  "name": "gravity-tunnel-runner",
+  "version": "1.0.0",
+  "description": "3D 无限跑酷游戏 - 基于 Three.js r128",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  },
+  "author": "JellyfishCloud",
+  "license": "MIT"
+}

@@ -1,0 +1,471 @@
+/* ============ 用户菜单（菜单面板顶部） ============ */
+.user-menu-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(0, 229, 199, 0.08);
+  border: 1px solid var(--panel-border-soft);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-display);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.25s var(--ease-smooth);
+}
+.user-menu-btn:hover {
+  color: var(--accent-primary);
+  border-color: var(--panel-border);
+  background: rgba(0, 229, 199, 0.15);
+}
+.user-menu-btn.logged-in {
+  color: var(--accent-primary);
+  border-color: var(--panel-border);
+  background: rgba(0, 229, 199, 0.12);
+}
+.user-menu-btn i { font-size: 11px; }
+.user-menu-btn .user-avatar {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-warm));
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--bg-deep); font-size: 10px; font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* ============ 网络状态指示器（左下角） ============ */
+.network-status {
+  position: fixed;
+  bottom: 16px; left: 16px;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--panel-glass);
+  border: 1px solid var(--panel-border-soft);
+  backdrop-filter: blur(12px);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  z-index: 50;
+  pointer-events: none;
+  transition: opacity 0.3s var(--ease-smooth);
+}
+.network-status .ns-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: background 0.3s var(--ease-smooth);
+}
+.network-status.online .ns-dot { background: var(--accent-primary); box-shadow: 0 0 8px var(--accent-primary-glow); }
+.network-status.offline .ns-dot { background: var(--accent-warm); }
+.network-status.syncing .ns-dot { background: var(--accent-gold); animation: ns-pulse 1s infinite; }
+@keyframes ns-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* ============ 登录/注册 Modal ============ */
+.auth-modal .panel { max-width: 380px; }
+.auth-step { display: none; }
+.auth-step.active { display: block; animation: panelIn 0.4s var(--ease-spring); }
+.auth-step-indicator {
+  display: flex; justify-content: center; gap: 6px;
+  margin-bottom: 16px;
+}
+.auth-step-indicator .step-dot {
+  width: 24px; height: 4px;
+  background: var(--panel-border-soft);
+  border-radius: 2px;
+  transition: background 0.3s var(--ease-smooth);
+}
+.auth-step-indicator .step-dot.active { background: var(--accent-primary); }
+.auth-input-group {
+  margin-bottom: 14px;
+}
+.auth-input-group label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 1.5px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.auth-input {
+  width: 100%;
+  background: rgba(4, 6, 14, 0.6);
+  border: 1px solid var(--panel-border-soft);
+  color: var(--text-primary);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  transition: all 0.25s var(--ease-smooth);
+  box-sizing: border-box;
+}
+.auth-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-primary-soft);
+}
+.auth-input:focus-visible { outline: none; }
+.auth-input::placeholder { color: var(--text-dim); }
+.auth-input-group .with-button {
+  display: flex; gap: 8px; align-items: stretch;
+}
+.auth-input-group .with-button .auth-input { flex: 1; }
+.auth-input-group .with-button .send-code-btn {
+  flex-shrink: 0;
+  padding: 0 18px;
+  background: linear-gradient(135deg, #00E5C7 0%, #00b8a0 100%);
+  border: none;
+  color: #031215;
+  border-radius: 10px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.25s var(--ease-smooth);
+  white-space: nowrap;
+  box-shadow:
+    0 4px 14px rgba(0, 229, 199, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.auth-input-group .with-button .send-code-btn:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow:
+    0 8px 22px rgba(0, 229, 199, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+.auth-input-group .with-button .send-code-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+.auth-input-group .with-button .send-code-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: rgba(0, 229, 199, 0.15);
+  color: var(--accent-primary);
+  box-shadow: none;
+}
+/* 发送按钮加载态：旋转指示器替代文字 */
+.auth-input-group .with-button .send-code-btn.loading {
+  color: transparent !important;
+  pointer-events: none;
+  position: relative;
+}
+.auth-input-group .with-button .send-code-btn.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 14px; height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 2px solid rgba(3, 18, 21, 0.3);
+  border-top-color: #031215;
+  border-radius: 50%;
+  animation: btnSpin 0.6s linear infinite;
+}
+.auth-tip {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+}
+.auth-tip code {
+  background: rgba(245, 200, 66, 0.1);
+  color: var(--accent-gold);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+.auth-error {
+  color: var(--danger);
+  font-size: 12px;
+  text-align: center;
+  margin-top: 8px;
+  min-height: 16px;
+  font-family: var(--font-display);
+}
+.auth-modal-close {
+  position: absolute;
+  top: 14px; right: 14px;
+  width: 28px; height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  transition: color 0.2s var(--ease-smooth);
+}
+.auth-modal-close:hover { color: var(--text-primary); }
+
+/* ============ 排行榜云端切换 ============ */
+.leaderboard-tabs {
+  display: flex; gap: 4px;
+  margin-bottom: 12px;
+  background: rgba(4, 6, 14, 0.4);
+  padding: 4px;
+  border-radius: 10px;
+}
+.lb-tab {
+  flex: 1;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 7px;
+  transition: all 0.25s var(--ease-smooth);
+  letter-spacing: 0.5px;
+}
+.lb-tab:hover { color: var(--text-secondary); }
+.lb-tab.active {
+  background: rgba(0, 229, 199, 0.12);
+  color: var(--accent-primary);
+}
+.leaderboard-empty.cloud {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* ============ 新/老用户区分 & 账号管理 ============ */
+/* 隐藏工具类：老用户登录时隐藏用户名输入组 */
+.auth-input-group.hidden { display: none; }
+
+/* 注册时间等元信息：小号、灰、居中 */
+.auth-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 6px 0 14px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+}
+
+/* 注销账号按钮：复用 .btn-danger，增加顶部间距与确认感 */
+#deleteAccountBtn {
+  margin-top: 16px;
+  width: 100%;
+}
+
+/* ============ 登录 Tab 切换（验证码 / 密码） ============ */
+.auth-tabs {
+  display: flex; gap: 4px;
+  margin-bottom: 14px;
+  background: rgba(4, 6, 14, 0.4);
+  padding: 4px;
+  border-radius: 10px;
+}
+.auth-tab {
+  flex: 1;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 7px;
+  transition: all 0.25s var(--ease-smooth);
+  letter-spacing: 0.5px;
+}
+.auth-tab:hover { color: var(--text-secondary); }
+.auth-tab.active {
+  background: rgba(0, 229, 199, 0.12);
+  color: var(--accent-primary);
+}
+.auth-tab-panel { display: none; }
+.auth-tab-panel.active { display: block; }
+
+/* 通用 hidden 工具类（与 .auth-input-group.hidden 区分，那个是历史遗留） */
+.hidden { display: none !important; }
+
+/* ============ 个人资料页（step3 重构） ============ */
+
+/* 头像区 */
+.profile-avatar-section {
+  text-align: center;
+  margin-bottom: 18px;
+}
+.profile-avatar-wrapper {
+  position: relative;
+  display: inline-block;
+}
+.profile-avatar {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--panel-border);
+  display: block;
+}
+.profile-avatar-fallback {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-warm));
+  color: var(--bg-deep);
+  font-size: 28px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.profile-avatar-upload {
+  position: absolute;
+  bottom: -2px; right: -2px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: var(--bg-deep);
+  border: 2px solid var(--bg-base);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px;
+  transition: transform 0.2s var(--ease-smooth);
+}
+.profile-avatar-upload:hover { transform: scale(1.1); }
+.profile-avatar-upload.loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+.profile-avatar-upload.loading::after {
+  content: '';
+  position: absolute;
+  width: 12px; height: 12px;
+  border: 2px solid rgba(3, 18, 21, 0.3);
+  border-top-color: #031215;
+  border-radius: 50%;
+  animation: btnSpin 0.6s linear infinite;
+}
+
+/* 资料分区（通用容器） */
+.profile-section {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--panel-border-soft);
+}
+.profile-section:last-of-type {
+  border-bottom: none;
+}
+.profile-section label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 1.5px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+
+/* 资料编辑行（输入框 + 保存按钮） */
+.profile-edit-row {
+  display: flex; gap: 8px; align-items: stretch;
+}
+.profile-edit-row .auth-input { flex: 1; }
+
+/* 小号按钮 */
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* 邮箱行 */
+.profile-email-row {
+  display: flex; gap: 8px; align-items: center; justify-content: space-between;
+}
+.profile-email-text {
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+.profile-email-form {
+  margin-top: 10px;
+}
+
+/* 密码区 */
+.profile-password-header {
+  display: flex; gap: 8px; align-items: center; justify-content: space-between;
+}
+.profile-password-form {
+  margin-top: 10px;
+}
+.profile-password-form .auth-input-group {
+  margin-bottom: 8px;
+}
+
+/* 操作区：按钮垂直堆叠 */
+.profile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.profile-actions .btn {
+  width: 100%;
+}
+
+/* ============ 用户菜单中的头像图片 ============ */
+.user-menu-btn .user-avatar-img {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-block;
+}
+
+/* ============ 忘记密码步骤标题 ============ */
+#authStepForgot h2 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--text-primary);
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+/* ============ 密码强度指示器 ============ */
+.pwd-strength {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 6px; margin-bottom: 8px;
+  font-family: var(--font-mono); font-size: 10px;
+}
+.pwd-strength[hidden] { display: none; }
+.pwd-strength-segments { display: flex; gap: 3px; flex: 1; }
+.pwd-seg {
+  flex: 1; height: 3px;
+  background: var(--panel-border-soft);
+  border-radius: 2px;
+  transition: background 0.2s var(--ease-smooth);
+}
+.pwd-seg.active.weak { background: var(--danger); }
+.pwd-seg.active.medium { background: var(--accent-gold); }
+.pwd-seg.active.strong { background: var(--accent-primary); }
+.pwd-strength-label { color: var(--text-muted); min-width: 24px; text-align: right; }
+
+/* ============ 密码明文/密文切换按钮 ============ */
+.pwd-input-wrapper { position: relative; }
+.pwd-input-wrapper .auth-input { padding-right: 38px; }
+.pwd-visibility-toggle {
+  position: absolute;
+  right: 8px; top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 13px;
+  transition: color 0.2s var(--ease-smooth);
+}
+.pwd-visibility-toggle:hover { color: var(--accent-primary); }
+
+/* ============ 头像上传预览按钮组 ============ */
+.avatar-preview-actions {
+  display: flex; gap: 8px; justify-content: center;
+  margin-top: 10px;
+}
+.avatar-preview-actions.hidden { display: none; }
+.avatar-preview-actions .btn-sm { min-width: 80px; }
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--panel-border-soft);
+  color: var(--text-muted);
+}
+.btn-ghost:hover { color: var(--text-secondary); border-color: var(--panel-border); }

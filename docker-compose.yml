@@ -1,0 +1,104 @@
+# 重力隧道 Docker 编排文件
+#
+# 使用方法：
+#   1. 复制 .env.docker.example 为 .env，修改里面的密码
+#      cp .env.docker.example .env
+#   2. 构建并启动所有服务
+#      docker compose up -d --build
+#   3. 访问 http://你的服务器IP:8081
+#   4. 查看日志
+#      docker compose logs -f
+#   5. 停止
+#      docker compose down
+#
+# ⚠️ 端口说明：
+#   默认用 8081 端口，避免和已有 Web 应用冲突。
+#   如果 80 端口空闲，可改下面的 FRONTEND_PORT=80 用 80 端口访问。
+
+services:
+  # ===== MySQL 数据库 =====
+  mysql:
+    image: mysql:8.0
+    container_name: gravity-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: gravity_tunnel
+    volumes:
+      - mysql_data:/var/lib/mysql
+    # 不映射端口到宿主机，只在 Docker 内网通信（更安全）
+    # 外部访问不到数据库，只有 backend 容器能连
+    # ⚠️ 2G 内存服务器优化：限制 MySQL 内存占用
+    deploy:
+      resources:
+        limits:
+          memory: 512M   # MySQL 最多用 512MB（默认会吃 1G+）
+    command:
+      # 关键内存优化参数
+      - --innodb-buffer-pool-size=128M
+      - --innodb-log-file-size=32M
+      - --max-connections=20
+      - --performance-schema=OFF
+      - --table-definition-cache=200
+    healthcheck:
+      # 健康检查：mysqladmin ping 返回成功才算就绪
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s       # 每 5 秒检查一次
+      timeout: 5s        # 超时 5 秒
+      retries: 10        # 最多重试 10 次
+      start_period: 30s  # 启动后给 30 秒缓冲
+    restart: unless-stopped
+
+  # ===== 后端 FastAPI =====
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.backend
+    container_name: gravity-backend
+    environment:
+      # 数据库连接串指向 mysql 容器（服务名即主机名）
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/gravity_tunnel
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      REFRESH_TOKEN_EXPIRE_DAYS: 30
+      OTP_DEV_FIXED_CODE: ${OTP_DEV_FIXED_CODE}
+      OTP_EXPIRE_MINUTES: 5
+      OTP_MAX_ATTEMPTS: 5
+      # QQ 邮箱 SMTP（可选，留空用固定验证码）
+      SMTP_HOST: ${SMTP_HOST:-smtp.qq.com}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-重力隧道}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      APP_ENV: production
+      LOG_LEVEL: INFO
+    volumes:
+      # 头像等用户上传文件持久化（容器重建后不丢失）
+      - avatar_data:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy  # 等 MySQL 健康检查通过再启动
+    restart: unless-stopped
+
+  # ===== 前端 Nginx =====
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: gravity-frontend
+    ports:
+      # 用变量控制端口，默认 8081，可在 .env 里改成其他端口
+      # 如果 80 端口空闲，可以改成 "80:80"
+      - "${FRONTEND_PORT:-8081}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+# 数据卷：MySQL 数据持久化
+# 即使容器删除重建，数据也不会丢失（除非手动删除卷）
+volumes:
+  mysql_data:
+  avatar_data:

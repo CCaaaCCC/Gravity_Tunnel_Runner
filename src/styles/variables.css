@@ -1,0 +1,38 @@
+/* ============ 设计令牌 / Design Tokens ============ */
+:root {
+  --accent-primary: #00E5C7;
+  --accent-primary-soft: #00e5c733;
+  --accent-primary-glow: #00e5c780;
+  --accent-warm: #FF8B3D;
+  --accent-warm-glow: #ff8b3d80;
+  --accent-gold: #F5C842;
+  --danger: #FF4D6D;
+  --bg-base: #04060e;
+  --bg-deep: #02030a;
+  --panel-glass: rgba(8, 12, 22, 0.78);
+  --panel-border: rgba(0, 229, 199, 0.28);
+  --panel-border-soft: rgba(0, 229, 199, 0.12);
+  --text-primary: #eafcff;
+  --text-secondary: #b8c8d8;
+  --text-muted: #93a6b8;
+  --text-dim: #7a8a9c;
+  --font-display: 'Chakra Petch', 'PingFang SC', system-ui, sans-serif;
+  --font-body: 'Sora', -apple-system, "Segoe UI", "PingFang SC", system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Chakra Petch', monospace;
+  /* 圆角 */
+  --radius-panel: 20px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --radius-pill: 999px;
+  /* 间距令牌 */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 14px;
+  --space-lg: 22px;
+  --space-xl: 36px;
+  /* 缓动 */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  /* 触控目标最小尺寸（无障碍） */
+  --touch-target: 44px;
+}

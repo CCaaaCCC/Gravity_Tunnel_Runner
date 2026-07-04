@@ -1,0 +1,11 @@
+# 前端构建上下文排除项（加速构建，避免传无关文件）
+node_modules
+dist
+.git
+.gitignore
+.trae
+backend
+*.md
+.env
+.env.*
+!.env.docker.example

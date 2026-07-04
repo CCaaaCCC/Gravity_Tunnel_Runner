@@ -1,0 +1,132 @@
+@media (max-width:480px) {
+  .hud-panel { padding:10px 16px; top: calc(15px + env(safe-area-inset-top)); left: calc(15px + env(safe-area-inset-left)); }
+  .score-value { font-size:26px; }
+  .score-label { font-size:8px; }
+  .speed-row { font-size:11px; }
+  .panel { padding:26px 20px; }
+  .panel h1 { font-size:28px; }
+  .desc { font-size:12px; }
+  .keys { grid-template-columns:1fr 1fr; gap:6px; }
+  .controls-hint { font-size: 10px; padding: 6px 14px; bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .energy-bar-container { width:100px; right: calc(15px + env(safe-area-inset-right)); top: calc(18px + env(safe-area-inset-top)); height:10px; }
+  .energy-label { font-size:7.5px; right: calc(15px + env(safe-area-inset-right)); top: calc(6px + env(safe-area-inset-top)); }
+  /* 移动端：工具栏移至底部，避免与顶部 combo/powerup 堆叠重叠 */
+  .hud-toolbar { top:auto; bottom: calc(54px + env(safe-area-inset-bottom)); right:50%; transform:translateX(50%); gap:4px; padding:3px 5px; }
+  .audio-btn { width:26px; height:26px; font-size:10px; }
+  .pause-btn { width:28px; height:28px; font-size:10px; }
+  .volume-slider { width:44px; margin:0 2px; }
+  .stats-grid { grid-template-columns:1fr; gap:6px; }
+  .stat-cell .stat-num { font-size:18px; }
+  .stat-cell { padding:8px 6px; }
+  /* 按钮组小屏堆叠 */
+  .panel .btn + .btn { margin-top: 8px; }
+  .achievement-popup { max-width:200px; right:12px; padding:12px 16px; }
+  .combo-display { font-size:20px; top:70px; }
+  .powerup-indicator { font-size:12px; top:98px; }
+  .near-miss-display { font-size:16px; top:128px; }
+  .zone-name { font-size:28px; }
+  .countdown-number { font-size:90px; }
+  .countdown-go { font-size:70px; }
+}
+
+/* 平板竖屏：稍微放大 panel 与 HUD */
+@media (max-width:768px) and (min-width:481px) {
+  .stats-grid { gap:8px; }
+  .stat-cell .stat-num { font-size:20px; }
+}
+
+/* 中大屏：放大 panel 与 HUD 字号 */
+@media (min-width:1440px) {
+  .panel { max-width:520px; padding:42px 38px 36px; }
+  .panel h1 { font-size:36px; }
+  .score-value { font-size:42px; }
+  .hud-panel { padding:14px 22px; }
+  .energy-bar-container { width:160px; }
+  .zone-name { font-size:42px; }
+}
+
+/* 超宽屏：防止左右大量留白 */
+@media (min-width:1920px) {
+  .panel { max-width:560px; }
+  .score-value { font-size:46px; }
+  .countdown-number { font-size:130px; }
+}
+
+@media (max-width:480px) {
+  .skins-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width:480px) {
+  .ach-list { max-height: 260px; }
+}
+
+/* ============ 横屏手机适配 ============ */
+@media (max-height: 480px) and (orientation: landscape) {
+  .panel { max-width: 400px; padding: 18px 24px 16px; max-height: 94vh; }
+  .panel h1 { font-size: 22px; }
+  .subtitle { margin-bottom: 10px; font-size: 9px; }
+  .desc { font-size: 11px; margin-bottom: 12px; }
+  .menu-tabs { margin-bottom: 12px; }
+  .menu-tab { padding: 8px 6px; font-size: 11px; }
+  .stats-grid { grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; margin: 10px 0 14px; }
+  .stat-cell { padding: 8px 6px; }
+  .stat-cell .stat-num { font-size: 16px; }
+  .keys { margin-bottom: 12px; }
+  .difficulty-selector { margin-bottom: 12px; }
+  /* 横屏时 HUD 面板缩小避免遮挡 */
+  .hud-panel { padding: 8px 14px; top: calc(10px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); }
+  .score-value { font-size: 22px; }
+  .energy-bar-container { width: 90px; top: calc(12px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); height: 8px; }
+  .energy-label { top: calc(3px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); font-size: 6.5px; }
+  .hud-toolbar { top: calc(30px + env(safe-area-inset-top)); right: calc(10px + env(safe-area-inset-right)); }
+  .controls-hint { display: none; }
+}
+
+/* ============ 平板横屏 / 小桌面（768-1024px）============ */
+@media (min-width: 769px) and (max-width: 1023px) {
+  .panel { max-width: 440px; }
+  .stats-grid { gap: 12px; }
+  .stat-cell .stat-num { font-size: 24px; }
+}
+
+/* ============ 桌面中等屏（1024-1440px）============ */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .panel { max-width: 460px; }
+}
+
+/* ============ 移动端触控目标优化 ============ */
+@media (max-width: 480px) {
+  .audio-btn, .pause-btn { min-width: var(--touch-target); min-height: var(--touch-target); }
+  .difficulty-btn { min-height: 40px; padding: 10px 16px; }
+  .menu-tab { min-height: 40px; }
+  .skin-btn { min-height: 38px; }
+}
+
+/* ============ prefers-reduced-motion 降级 ============ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .scanline-overlay, .grain-overlay { display: none; }
+  .panel { animation: none; }
+}
+
+/* ============ 响应式：移动端适配 ============ */
+@media (max-width: 768px) {
+  .user-menu-btn { padding: 5px 10px; font-size: 11px; }
+  .user-menu-btn .user-avatar { width: 16px; height: 16px; font-size: 9px; }
+  .network-status { font-size: 10px; padding: 4px 10px; bottom: 12px; left: 12px; }
+  .auth-modal .panel { max-width: 90vw; }
+}
+@media (max-width: 375px) {
+  .user-menu-btn span.user-name-text { display: none; }
+  .leaderboard-tabs { flex-direction: column; }
+  .lb-tab { padding: 6px 8px; font-size: 11px; }
+}
+
+/* ============ Reduced motion ============ */
+@media (prefers-reduced-motion: reduce) {
+  .auth-step.active, .network-status.syncing .ns-dot { animation: none; }
+}
